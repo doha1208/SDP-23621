@@ -53,17 +53,18 @@ public final class RaiderBoss extends AbstractBoss {
 	/** Bullet angle off horizontal while charging, radians. */
 	private static final double SPRAY_ANGLE = 0.35;
 
-	private static final Color BODY = new Color(240, 150, 120);
-	private static final Color BODY_DARK = new Color(200, 105, 85);
-	private static final Color COCKPIT = new Color(20, 90, 130);
-	private static final Color GUN = new Color(150, 150, 160);
-	private static final Color GUN_DARK = new Color(70, 70, 80);
-	private static final Color BODY_LIGHT = new Color(255, 190, 160);
-	private static final Color WING = new Color(222, 128, 100);
-	private static final Color ACCENT = new Color(210, 50, 50);
-	private static final Color NACELLE = new Color(120, 120, 135);
-	private static final Color NACELLE_LIGHT = new Color(170, 170, 185);
-	private static final Color CANOPY_SHINE = new Color(170, 230, 255);
+	private static final Color CARAPACE = new Color(52, 34, 92);
+	private static final Color CARAPACE_ALT = new Color(44, 28, 78);
+	private static final Color CARAPACE_LIGHT = new Color(125, 85, 190);
+	private static final Color CARAPACE_DARK = new Color(28, 16, 50);
+	private static final Color MEMBRANE = new Color(150, 90, 220, 150);
+	private static final Color GLOW = new Color(110, 240, 255);
+	private static final Color GLOW_DIM = new Color(30, 90, 120);
+	private static final Color HOT = new Color(240, 90, 230);
+	private static final Color HOT_DIM = new Color(100, 30, 95);
+	private static final Color EYE = new Color(120, 255, 150);
+	private static final Color PUPIL = new Color(8, 6, 18);
+	private static final Color SHINE = new Color(235, 255, 240);
 
 	private final int maxHealth;
 	private int health;
@@ -79,6 +80,8 @@ public final class RaiderBoss extends AbstractBoss {
 	private int fireTimer;
 	private int summonTimer;
 	private int spawnTimer;
+	/** Player x, for the eye to look at. */
+	private double lookX;
 	private final List<HomingDrone> drones = new ArrayList<HomingDrone>();
 
 	/**
@@ -105,6 +108,7 @@ public final class RaiderBoss extends AbstractBoss {
 
 	@Override
 	protected void tickParts(final double playerX, final double playerY) {
+		this.lookX = playerX;
 		if (this.flash > 0)
 			this.flash--;
 		Iterator<HomingDrone> it = this.drones.iterator();
@@ -192,7 +196,7 @@ public final class RaiderBoss extends AbstractBoss {
 			this.stateFrames = warning;
 			double laneTop = this.y + HEIGHT;
 			this.hazards.add(new BossHazard(this.x, laneTop, WIDTH,
-					this.height - laneTop, warning, 0, BODY));
+					this.height - laneTop, warning, 0, HOT));
 		} else {
 			this.stateFrames = this.balance.frames("raider.drones.time");
 			this.spawnTimer = 0;
@@ -340,70 +344,91 @@ public final class RaiderBoss extends AbstractBoss {
 		int bx = (int) Math.round(this.x) + shake;
 		int by = (int) Math.round(this.y);
 		boolean white = this.flash > 0;
-		Color body = white ? Color.WHITE : BODY;
-		Color light = white ? Color.WHITE : BODY_LIGHT;
-		Color dark = white ? Color.WHITE : BODY_DARK;
-		Color wing = white ? Color.WHITE : WING;
+		Color shell = white ? Color.WHITE : CARAPACE;
+		Color shellAlt = white ? Color.WHITE : CARAPACE_ALT;
+		Color light = white ? Color.WHITE : CARAPACE_LIGHT;
+		Color dark = white ? Color.WHITE : CARAPACE_DARK;
+		Color membrane = white ? Color.WHITE : MEMBRANE;
+		double pulse = 0.5 + 0.5 * Math.sin(this.frame * 0.12);
+		Color glow = white ? Color.WHITE : mix(GLOW_DIM, GLOW, pulse);
+		Color hot = white ? Color.WHITE : mix(HOT_DIM, HOT, 1 - pulse);
 		int cx = bx + WIDTH / 2;
 
 		drawExhaust(drawManager, cx, by);
 
-		// Tail: fins and stabilisers at the back (top).
-		pair(drawManager, cx, by, 6, 0, 8, 10, dark);
-		pair(drawManager, cx, by, 14, 4, 14, 6, dark);
+		// Feelers at the back (top), tipped with light.
+		pair(drawManager, cx, by, 8, 0, 3, 12, dark);
+		pair(drawManager, cx, by, 11, 0, 3, 3, dark);
+		pair(drawManager, cx, by, 11, 0, 3, 1, hot);
 
-		// Swept wings, stepping up toward the tips, with a lit leading edge.
-		pair(drawManager, cx, by, 20, 24, 24, 18, wing);
-		pair(drawManager, cx, by, 44, 20, 12, 16, wing);
-		pair(drawManager, cx, by, 56, 16, 8, 14, wing);
-		pair(drawManager, cx, by, 20, 40, 24, 2, light);
-		pair(drawManager, cx, by, 44, 34, 12, 2, light);
-		pair(drawManager, cx, by, 56, 28, 8, 2, light);
-		pair(drawManager, cx, by, 20, 24, 44, 1, dark);
-		// Wing markings and navigation lights (red left, green right).
-		pair(drawManager, cx, by, 46, 24, 8, 6, white ? Color.WHITE : ACCENT);
-		pair(drawManager, cx, by, 48, 26, 4, 2, Color.WHITE);
-		if ((this.frame / 15) % 2 == 0 && !white) {
-			box(drawManager, cx - 62, by + 18, 3, 3, new Color(255, 60, 60));
-			box(drawManager, cx + 59, by + 18, 3, 3, new Color(80, 255, 120));
-		}
+		// Blade wings: hard shell by the body, see-through membrane outward,
+		// stepping up toward the tips.
+		pair(drawManager, cx, by, 20, 24, 24, 18, shell);
+		pair(drawManager, cx, by, 44, 20, 12, 16, membrane);
+		pair(drawManager, cx, by, 56, 16, 8, 14, membrane);
+		// Wing bones out to the tips.
+		pair(drawManager, cx, by, 20, 30, 40, 2, light);
+		pair(drawManager, cx, by, 42, 21, 2, 19, dark);
+		pair(drawManager, cx, by, 54, 17, 2, 15, dark);
+		// Glowing leading edge and bio-dots.
+		pair(drawManager, cx, by, 20, 40, 24, 2, glow);
+		pair(drawManager, cx, by, 44, 34, 12, 2, glow);
+		pair(drawManager, cx, by, 56, 28, 8, 2, glow);
+		pair(drawManager, cx, by, 28, 34, 3, 3, hot);
+		pair(drawManager, cx, by, 47, 26, 3, 3, hot);
+		pair(drawManager, cx, by, 58, 21, 3, 3, hot);
+		// Horns at the wing tips.
+		pair(drawManager, cx, by, 60, 8, 4, 8, light);
+		pair(drawManager, cx, by, 62, 4, 2, 4, light);
 
-		// Engine pods under the wings, with gun barrels.
-		pair(drawManager, cx, by, 32, 22, 12, 24, white ? Color.WHITE : NACELLE);
-		pair(drawManager, cx, by, 32, 22, 2, 24, white ? Color.WHITE : NACELLE_LIGHT);
-		pair(drawManager, cx, by, 32, 44, 12, 3, white ? Color.WHITE : GUN_DARK);
-		pair(drawManager, cx, by, 36, 47, 4, 10, white ? Color.WHITE : GUN);
+		// Glands under the wings with bone spikes that shoot.
+		pair(drawManager, cx, by, 32, 24, 12, 20, dark);
+		pair(drawManager, cx, by, 34, 26, 2, 15, light);
+		pair(drawManager, cx, by, 32, 42, 12, 3, hot);
+		pair(drawManager, cx, by, 37, 45, 2, 10, light);
+		pair(drawManager, cx, by, 36, 54, 4, 3, glow);
 		if (this.state == State.PATROL
 				&& gapFrames("raider.patrol.fireGap") - this.fireTimer < 4)
-			pair(drawManager, cx, by, 35, 57, 6, 4, Color.YELLOW);
+			pair(drawManager, cx, by, 35, 56, 6, 5, white ? Color.WHITE : GLOW);
 
-		// Fuselage, narrowing to the nose (bottom).
-		box(drawManager, cx - 18, by, 36, 4, dark);
-		box(drawManager, cx - FUSELAGE / 2, by + 4, FUSELAGE, 40, body);
-		box(drawManager, cx - 19, by + 44, 38, 8, body);
-		box(drawManager, cx - 12, by + 52, 24, 6, body);
-		box(drawManager, cx - 6, by + 58, 12, 2, dark);
-		// Light left side, dark right side, panel seams and rivets.
-		box(drawManager, cx - FUSELAGE / 2, by + 4, 3, 40, light);
-		box(drawManager, cx + FUSELAGE / 2 - 3, by + 4, 3, 40, dark);
-		box(drawManager, cx - 1, by + 6, 2, 26, dark);
-		box(drawManager, cx - FUSELAGE / 2 + 3, by + 16, FUSELAGE - 6, 1, dark);
-		box(drawManager, cx - FUSELAGE / 2 + 3, by + 30, FUSELAGE - 6, 1, dark);
-		for (int rx = cx - 20; rx <= cx + 18; rx += 8)
-			box(drawManager, rx, by + 33, 2, 2, dark);
+		// Segmented carapace narrowing to pincers at the front (bottom).
+		box(drawManager, cx - 16, by, 32, 4, dark);
+		for (int seg = 0; seg < 5; seg++) {
+			int sy = by + 4 + seg * 8;
+			int half = FUSELAGE / 2 - (seg == 0 ? 4 : 0);
+			box(drawManager, cx - half, sy, half * 2, 8, seg % 2 == 0 ? shell : shellAlt);
+			box(drawManager, cx - half, sy, half * 2, 1, light);
+		}
+		box(drawManager, cx - 19, by + 44, 38, 8, shell);
+		box(drawManager, cx - 19, by + 44, 38, 1, light);
+		pair(drawManager, cx, by, 5, 50, 6, 8, light);
+		pair(drawManager, cx, by, 3, 58, 4, 2, light);
+		box(drawManager, cx - 5, by + 50, 10, 6, dark);
+		box(drawManager, cx - 3, by + 52, 6, 2, hot);
 
-		// Cockpit canopy with frame and shine.
-		Color canopy = white ? Color.WHITE
+		// Glowing spine and small side eyes.
+		for (int sy = by + 6; sy < by + 32; sy += 6)
+			box(drawManager, cx - 1, sy, 2, 3, hot);
+		pair(drawManager, cx, by, 12, 28, 3, 3, glow);
+
+		// Big eye where a cockpit would be, looking at the player; red
+		// before a charge.
+		Color iris = white ? Color.WHITE
 				: this.state == State.CHARGE_WARNING && (this.frame / 4) % 2 == 0
-						? new Color(200, 40, 40) : COCKPIT;
-		box(drawManager, cx - 8, by + 36, 16, 14, canopy);
-		box(drawManager, cx - 8, by + 42, 16, 1, dark);
-		box(drawManager, cx - 6, by + 38, 3, 3, white ? Color.WHITE : CANOPY_SHINE);
+						? new Color(255, 60, 60) : EYE;
+		box(drawManager, cx - 9, by + 35, 18, 14, dark);
+		box(drawManager, cx - 7, by + 37, 14, 10, iris);
+		if (!white) {
+			int look = (int) Math.round(Math.max(-4, Math.min(4,
+					(this.lookX - (this.x + WIDTH / 2.0)) / 30)));
+			box(drawManager, cx - 1 + look, by + 38, 3, 8, PUPIL);
+			box(drawManager, cx - 6, by + 38, 2, 2, SHINE);
+		}
 
 		drawDamage(drawManager, cx, by);
 	}
 
-	/** Engine flame behind the raider (top); longer while charging. */
+	/** Plasma jet behind the raider (top): blue, pink before a charge, long while charging. */
 	private void drawExhaust(final DrawManager drawManager, final int cx,
 			final int by) {
 		int flicker = (this.frame / 2) % 3;
@@ -411,23 +436,23 @@ public final class RaiderBoss extends AbstractBoss {
 		Color outer;
 		Color inner;
 		if (this.state == State.CHARGE) {
-			length = 12 + flicker * 2;
-			outer = new Color(255, 120, 40);
-			inner = Color.YELLOW;
+			length = 14 + flicker * 2;
+			outer = new Color(90, 200, 255);
+			inner = Color.WHITE;
 		} else if (this.state == State.CHARGE_WARNING) {
 			length = 6 + flicker * 2;
-			outer = new Color(120, 180, 255);
+			outer = HOT;
 			inner = Color.WHITE;
 		} else {
 			length = 4 + flicker;
-			outer = new Color(255, 150, 40);
-			inner = new Color(255, 230, 120);
+			outer = new Color(60, 150, 255);
+			inner = new Color(200, 240, 255);
 		}
-		box(drawManager, cx - 10, by - length, 20, length, outer);
+		box(drawManager, cx - 10, by - length, 20, length, alpha(outer, 170));
 		box(drawManager, cx - 5, by - length + 2, 10, length - 2, inner);
 	}
 
-	/** Smoke and sparks once the raider is badly hurt. */
+	/** Purple smoke and dripping ichor once the raider is badly hurt. */
 	private void drawDamage(final DrawManager drawManager, final int cx,
 			final int by) {
 		if (this.health * 2 > this.maxHealth)
@@ -437,11 +462,14 @@ public final class RaiderBoss extends AbstractBoss {
 			int side = puff == 0 ? -40 : 34;
 			int size = 4 + age / 7;
 			box(drawManager, cx + side, by + 22 - age, size, size,
-					new Color(100, 100, 105, 170 - age * 4));
+					new Color(130, 80, 160, 170 - age * 4));
 		}
-		if (this.health * 4 <= this.maxHealth && (this.frame / 3) % 2 == 0)
-			box(drawManager, cx + 10 - (this.frame % 7) * 4, by + 20, 3, 3,
-					new Color(255, 200, 60));
+		if (this.health * 4 <= this.maxHealth)
+			for (int drip = 0; drip < 2; drip++) {
+				int length = (this.frame / 3 + drip * 6) % 12;
+				box(drawManager, cx - 20 + drip * 38, by + 42, 2, length,
+						alpha(new Color(120, 255, 120), 210 - length * 14));
+			}
 	}
 
 	/**

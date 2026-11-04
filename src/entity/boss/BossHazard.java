@@ -146,7 +146,9 @@ public final class BossHazard {
 			drawManager.fillBox(ix, iy, iw, ih, this.color);
 			int core = Math.max(2, iw / 3);
 			drawManager.fillBox(ix + (iw - core) / 2, iy, core, ih,
-					new Color(255, 230, 230));
+					new Color((this.color.getRed() + 255 * 3) / 4,
+							(this.color.getGreen() + 255 * 3) / 4,
+							(this.color.getBlue() + 255 * 3) / 4));
 		}
 	}
 

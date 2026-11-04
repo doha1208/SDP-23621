@@ -250,6 +250,20 @@ abstract class AbstractBoss implements BossFight {
 			hazard.draw(drawManager);
 	}
 
+
+	/** @return The color between a and b; t from 0 (a) to 1 (b). */
+	protected static Color mix(final Color a, final Color b, final double t) {
+		double k = Math.max(0, Math.min(1, t));
+		return new Color((int) (a.getRed() + (b.getRed() - a.getRed()) * k),
+				(int) (a.getGreen() + (b.getGreen() - a.getGreen()) * k),
+				(int) (a.getBlue() + (b.getBlue() - a.getBlue()) * k));
+	}
+
+	/** @return The color with the given see-through value (0-255). */
+	protected static Color alpha(final Color color, final int alpha) {
+		return new Color(color.getRed(), color.getGreen(), color.getBlue(),
+				Math.max(0, Math.min(255, alpha)));
+	}
 	/** @return Copy of the zones, for tests and tools. */
 	public final List<BossHazard> getHazards() {
 		return new ArrayList<BossHazard>(this.hazards);

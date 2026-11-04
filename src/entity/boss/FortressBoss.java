@@ -49,24 +49,26 @@ public final class FortressBoss extends AbstractBoss {
 	/** Frames the risen attack stays before it ends. */
 	private static final int HOLD_FRAMES = 12;
 
-	private static final Color HULL = new Color(240, 150, 120);
-	private static final Color HULL_DARK = new Color(200, 110, 90);
-	private static final Color HULL_LIGHT = new Color(255, 190, 160);
-	private static final Color CORE = new Color(20, 90, 130);
-	private static final Color CORE_LENS = new Color(70, 160, 200);
-	private static final Color HULL_SHADE = new Color(226, 136, 108);
-	private static final Color RIVET = new Color(165, 90, 72);
-	private static final Color WINDOW = new Color(130, 225, 255);
-	private static final Color WINDOW_OFF = new Color(60, 70, 85);
-	private static final Color VENT = new Color(110, 58, 48);
-	private static final Color VENT_SLAT = new Color(170, 100, 80);
-	private static final Color STRIPE = new Color(235, 190, 50);
-	private static final Color STRIPE_DARK = new Color(60, 40, 30);
-	private static final Color HOUSING = new Color(75, 75, 90);
-	private static final Color HOUSING_LIGHT = new Color(130, 130, 145);
-	private static final Color BOLT = new Color(185, 185, 195);
-	private static final Color LENS_SHINE = new Color(215, 245, 255);
-	private static final Color LASER = new Color(255, 40, 40);
+	private static final Color HULL = new Color(62, 36, 98);
+	private static final Color HULL_DARK = new Color(36, 20, 58);
+	private static final Color HULL_LIGHT = new Color(130, 86, 185);
+	private static final Color HULL_STUNNED = new Color(45, 32, 62);
+	private static final Color RIB = new Color(40, 22, 66);
+	private static final Color RIB_LIGHT = new Color(100, 64, 150);
+	private static final Color VEIN = new Color(80, 255, 200);
+	private static final Color POD_DIM = new Color(20, 60, 62);
+	private static final Color POD_BRIGHT = new Color(130, 255, 215);
+	private static final Color GILL = new Color(28, 14, 42);
+	private static final Color GILL_GLOW = new Color(225, 70, 215);
+	private static final Color SPIKE = new Color(96, 60, 140);
+	private static final Color SOCKET = new Color(88, 28, 72);
+	private static final Color SOCKET_RIM = new Color(150, 55, 120);
+	private static final Color IRIS_DARK = new Color(10, 70, 55);
+	private static final Color IRIS = new Color(100, 255, 170);
+	private static final Color PUPIL = new Color(8, 6, 18);
+	private static final Color SHINE = new Color(235, 255, 240);
+	private static final Color OOZE = new Color(120, 255, 120);
+	private static final Color LASER = new Color(70, 255, 160);
 
 	/** One weak point. */
 	private static final class Core {
@@ -117,6 +119,8 @@ public final class FortressBoss extends AbstractBoss {
 	private double columnX;
 	private double columnFront;
 	private int crossfireTimer;
+	/** Player x, for the eyes to look at. */
+	private double lookX;
 	private boolean crossfireFromLeft;
 	/** Length of the sweep's lock step, for the charging glow. */
 	private int lockFrames = 1;
@@ -145,6 +149,7 @@ public final class FortressBoss extends AbstractBoss {
 
 	@Override
 	protected void tickParts(final double playerX, final double playerY) {
+		this.lookX = playerX;
 		for (Core core : this.cores)
 			if (core.flash > 0)
 				core.flash--;
@@ -462,15 +467,15 @@ public final class FortressBoss extends AbstractBoss {
 		int w = (int) Math.round(columnWidth());
 		int glow = (int) Math.round(8 + progress * 52);
 		int y = this.height - glow;
-		drawManager.fillBox(x, y, w, glow, new Color(255, 170, 40,
+		drawManager.fillBox(x, y, w, glow, new Color(80, 255, 170,
 				(int) (80 + 120 * progress)));
 		drawManager.fillBox(x + w / 3, y, Math.max(2, w / 3), glow,
-				new Color(255, 240, 180));
+				new Color(220, 255, 235));
 		if ((this.frame / 2) % 2 == 0)
 			for (int i = 0; i < 3; i++) {
 				int sx = x + (int) ((i + 0.5) * w / 3) - 1;
 				drawManager.fillBox(sx, y - 4 - ((this.frame + i * 3) % 7), 3, 3,
-						Color.YELLOW);
+						new Color(200, 255, 220));
 			}
 	}
 
@@ -480,51 +485,68 @@ public final class FortressBoss extends AbstractBoss {
 		int w = this.width + 2 * HULL_OVERHANG;
 		int centerX = (int) Math.round(this.width / 2.0 + this.sway);
 		boolean stunned = isStunned();
-		Color base = stunned ? HULL_DARK : HULL;
-		Color shade = stunned ? HULL_DARK : HULL_SHADE;
 
-		// Body, top light edge and its shadow line.
-		drawManager.fillBox(x, y, w, HULL_HEIGHT, base);
-		drawManager.fillBox(x, y, w, 3, HULL_LIGHT);
-		drawManager.fillBox(x, y + 3, w, 1, HULL_DARK);
-
-		// Armour plates in the middle band, every other one darker.
-		int index = 0;
-		for (int panel = x; panel < x + w; panel += 48, index++)
-			if (index % 2 == 1)
-				drawManager.fillBox(panel, y + 24, 48, 22, shade);
-
-		// Windows along the upper deck; a few go dark now and then.
-		int window = 0;
-		for (int wx = x + 8; wx < x + w - 6; wx += 14, window++) {
-			boolean lit = (window * 7 + this.frame / 40) % 6 != 0 && !stunned;
-			drawManager.fillBox(wx, y + 9, 5, 3, lit ? WINDOW : WINDOW_OFF);
+		// Body and a soft, uneven membrane along the top edge.
+		drawManager.fillBox(x, y, w, HULL_HEIGHT, stunned ? HULL_STUNNED : HULL);
+		drawManager.fillBox(x, y, w, 2, HULL_LIGHT);
+		int bumpIndex = 0;
+		for (int mx = x; mx < x + w; mx += 8, bumpIndex++) {
+			int bump = 1 + (int) Math.round(1.5 + 1.5 * Math.sin(bumpIndex * 1.3));
+			drawManager.fillBox(mx, y + 2, 8, bump, HULL_LIGHT);
 		}
 
-		// Deck seam with rivets, plate seams going down.
-		drawManager.fillBox(x, y + 20, w, 1, HULL_DARK);
-		for (int rx = x + 6; rx < x + w; rx += 12)
-			drawManager.fillBox(rx, y + 22, 2, 2, RIVET);
-		for (int panel = x + 24; panel < x + w; panel += 48)
-			drawManager.fillBox(panel, y + 4, 2, HULL_HEIGHT - 14, HULL_DARK);
+		// Ribs, like the bones of a living ship.
+		for (int rib = x + 20; rib < x + w; rib += 40) {
+			drawManager.fillBox(rib, y + 5, 4, HULL_HEIGHT - 15, RIB);
+			drawManager.fillBox(rib, y + 5, 1, HULL_HEIGHT - 15, RIB_LIGHT);
+			drawManager.fillBox(rib - 2, y + 5, 8, 3, RIB);
+		}
 
-		// Vents on both sides of the center core.
+		// Glow pods along the upper deck, pulsing in a slow wave.
+		int pod = 0;
+		for (int px = x + 8; px < x + w - 4; px += 14, pod++) {
+			double glow = stunned ? 0.1
+					: 0.5 + 0.5 * Math.sin(this.frame * 0.07 + pod * 0.6);
+			drawManager.fillBox(px, y + 9, 4, 4, mix(POD_DIM, POD_BRIGHT, glow));
+		}
+
+		// A glowing vein along the ship, with branches between the ribs.
+		int segment = 0;
+		for (int vx = x; vx < x + w; vx += 8, segment++) {
+			double pulse = stunned ? 0.15
+					: 0.5 + 0.5 * Math.sin(this.frame * 0.12 - segment * 0.45);
+			drawManager.fillBox(vx, y + 21, 8, 2, alpha(VEIN, 60 + (int) (170 * pulse)));
+		}
+		for (int branch = x + 40; branch < x + w; branch += 40) {
+			drawManager.fillBox(branch, y + 23, 2, 8, alpha(VEIN, 110));
+			drawManager.fillBox(branch + 2, y + 30, 4, 2, alpha(VEIN, 90));
+		}
+
+		// Gills beside the center core, glowing as the ship breathes.
+		double breath = 0.5 + 0.5 * Math.sin(this.frame * 0.05);
 		for (int side = -1; side <= 1; side += 2) {
-			int vx = side < 0 ? centerX - 76 : centerX + 46;
-			drawManager.fillBox(vx, y + 27, 30, 16, VENT);
-			for (int slat = 0; slat < 5; slat++)
-				drawManager.fillBox(vx + 2, y + 29 + slat * 3, 26, 1, VENT_SLAT);
+			int gx = side < 0 ? centerX - 76 : centerX + 46;
+			drawManager.fillBox(gx, y + 27, 30, 16, GILL);
+			for (int slat = 0; slat < 4; slat++)
+				drawManager.fillBox(gx + 3 + slat, y + 29 + slat * 4, 24 - slat * 2, 2,
+						alpha(GILL_GLOW, stunned ? 40 : 70 + (int) (150 * breath)));
 		}
 
-		// Lower band with warning stripes under the center and red lights.
+		// Dark underside, teeth hanging below it and bio-lights.
 		drawManager.fillBox(x, y + HULL_HEIGHT - 10, w, 10, HULL_DARK);
-		for (int stripe = 0; stripe < 48; stripe++)
-			drawManager.fillBox(centerX - 96 + stripe * 4, y + HULL_HEIGHT - 7, 4, 4,
-					stripe % 2 == 0 ? STRIPE : STRIPE_DARK);
-		boolean blink = (this.frame / 20) % 2 == 0;
-		for (int lx = x + 16; lx < x + w; lx += 32)
-			drawManager.fillBox(lx, y + HULL_HEIGHT - 2, 3, 2,
-					blink ? new Color(255, 60, 60) : new Color(120, 20, 20));
+		int bottom = y + HULL_HEIGHT;
+		for (int tx = x + 6; tx < x + w; tx += 16)
+			if (!nearCore(tx + 3)) {
+				drawManager.fillBox(tx, bottom, 6, 2, SPIKE);
+				drawManager.fillBox(tx + 1, bottom + 2, 4, 2, SPIKE);
+				drawManager.fillBox(tx + 2, bottom + 4, 2, 2, SPIKE);
+			}
+		int light = 0;
+		for (int lx = x + 16; lx < x + w; lx += 32, light++) {
+			double glow = stunned ? 0 : 0.5 + 0.5 * Math.sin(this.frame * 0.1 + light);
+			drawManager.fillBox(lx, y + HULL_HEIGHT - 6, 3, 3,
+					mix(POD_DIM, POD_BRIGHT, glow));
+		}
 
 		for (Core core : this.cores)
 			drawCore(drawManager, core, stunned);
@@ -533,6 +555,15 @@ public final class FortressBoss extends AbstractBoss {
 					Color.YELLOW);
 	}
 
+	/** @return True if x is under one of the cores (no teeth there). */
+	private boolean nearCore(final int x) {
+		for (Core core : this.cores)
+			if (Math.abs(x - coreCenterX(core)) < core.width / 2 + 8)
+				return true;
+		return false;
+	}
+
+	/** Draws a core as an alien eye in a fleshy socket; its pupil follows the player. */
 	private void drawCore(final DrawManager drawManager, final Core core,
 			final boolean stunned) {
 		int x = (int) Math.round(coreLeft(core));
@@ -543,40 +574,44 @@ public final class FortressBoss extends AbstractBoss {
 				&& this.laser != null
 				&& this.laser.getPhase() != BossHazard.Phase.ACTIVE;
 
-		// Housing: metal frame with a light top edge and corner bolts.
+		// Socket with a lighter rim and small tendrils that twitch.
 		drawManager.fillBox(x - 4, y - 3, w + 8, h + 6,
-				laserCharge && (this.frame / 4) % 2 == 0 ? new Color(150, 40, 40) : HOUSING);
-		drawManager.fillBox(x - 4, y - 3, w + 8, 1, HOUSING_LIGHT);
-		for (int bx : new int[] {x - 3, x + w + 1})
-			for (int by : new int[] {y - 2, y + h + 1})
-				drawManager.fillBox(bx, by, 2, 2, BOLT);
+				laserCharge && (this.frame / 4) % 2 == 0 ? new Color(170, 30, 60) : SOCKET);
+		drawManager.fillBox(x - 4, y - 3, w + 8, 1, SOCKET_RIM);
+		drawManager.fillBox(x - 4, y + h + 2, w + 8, 1, SOCKET_RIM);
+		int twitch = (this.frame / 12) % 2;
+		drawManager.fillBox(x - 7, y + 2 + twitch, 3, 3, SOCKET);
+		drawManager.fillBox(x - 9, y + 5 + twitch, 2, 3, SOCKET_RIM);
+		drawManager.fillBox(x + w + 4, y + 2 + twitch, 3, 3, SOCKET);
+		drawManager.fillBox(x + w + 7, y + 5 + twitch, 2, 3, SOCKET_RIM);
 
 		if (!core.alive()) {
 			drawDeadCore(drawManager, x, y, w, h);
 			return;
 		}
-		Color shell = CORE;
-		Color lens = CORE_LENS;
-		if (core.flash > 0) {
-			shell = Color.WHITE;
-			lens = Color.WHITE;
-		} else if (stunned) {
-			lens = (this.frame / 6) % 2 == 0 ? new Color(150, 230, 255) : CORE_LENS;
-		} else if (laserCharge) {
-			lens = (this.frame / 4) % 2 == 0 ? new Color(255, 60, 60)
+		Color iris = IRIS;
+		if (stunned)
+			iris = (this.frame / 6) % 2 == 0 ? new Color(150, 230, 255) : IRIS;
+		else if (laserCharge)
+			iris = (this.frame / 4) % 2 == 0 ? new Color(255, 60, 60)
 					: new Color(255, 160, 60);
-		} else if (core.side && this.current == Pattern.FAN) {
-			lens = new Color(255, 170, 70);
-		}
-		drawManager.fillBox(x, y, w, h, shell);
-		drawManager.fillBox(x + 3, y + 3, w - 6, h - 6, lens);
-		if (core.flash == 0) {
-			// Pupil, and a slit across the center core like an eye.
-			drawManager.fillBox(x + w / 2 - 4, y + h / 2 - 3, 8, 6, darker(lens));
-			if (core == this.center)
-				drawManager.fillBox(x + 6, y + h / 2 - 1, w - 12, 2,
-						laserCharge ? Color.YELLOW : new Color(170, 235, 255));
-			drawManager.fillBox(x + 5, y + 5, 4, 2, LENS_SHINE);
+		else if (core.side && this.current == Pattern.FAN)
+			iris = new Color(255, 190, 70);
+		if (core.flash > 0) {
+			drawManager.fillBox(x, y, w, h, Color.WHITE);
+		} else {
+			drawManager.fillBox(x, y, w, h, IRIS_DARK);
+			drawManager.fillBox(x + 3, y + 2, w - 6, h - 4, iris);
+			// Slit pupil, wide open while stunned, looking at the player.
+			boolean big = core == this.center;
+			int pupilW = stunned ? (big ? 14 : 10) : (big ? 6 : 4);
+			int pupilH = stunned ? h - 10 : h - 6;
+			double room = (w - 6 - pupilW) / 2.0 - 2;
+			double look = Math.max(-room, Math.min(room,
+					(this.lookX - coreCenterX(core)) / 12));
+			int px = (int) Math.round(coreCenterX(core) - pupilW / 2.0 + look);
+			drawManager.fillBox(px, y + (h - pupilH) / 2, pupilW, pupilH, PUPIL);
+			drawManager.fillBox(x + 5, y + 4, 3, 2, SHINE);
 		}
 		if (stunned && (this.frame / 3) % 2 == 0)
 			drawSparks(drawManager, x, y, w, h);
@@ -585,22 +620,20 @@ public final class FortressBoss extends AbstractBoss {
 		drawManager.fillBox(x, y + h + 5, barWidth, 2, new Color(255, 80, 80));
 	}
 
-	/** A destroyed core: a dark crater with cracks, embers and smoke. */
+	/** A destroyed core: a shut, scarred socket dripping glowing ooze. */
 	private void drawDeadCore(final DrawManager drawManager, final int x,
 			final int y, final int w, final int h) {
-		drawManager.fillBox(x, y, w, h, new Color(35, 35, 38));
-		drawManager.fillBox(x + 4, y + h / 2, w / 3, 1, new Color(90, 90, 95));
-		drawManager.fillBox(x + w / 2, y + 3, 1, h - 6, new Color(90, 90, 95));
-		drawManager.fillBox(x + w / 2 + 2, y + h - 6, w / 4, 1, new Color(90, 90, 95));
-		if ((this.frame / 10) % 3 != 2)
-			drawManager.fillBox(x + w / 2 - 3, y + h / 2 - 2, 6, 4,
-					(this.frame / 5) % 2 == 0 ? new Color(255, 120, 30)
-							: new Color(200, 60, 20));
-		for (int puff = 0; puff < 3; puff++) {
-			int age = (this.frame + puff * 13) % 40;
-			int size = 4 + age / 8;
-			drawManager.fillBox(x + w / 2 - size / 2 + (puff - 1) * 6,
-					y - age / 2, size, size, new Color(110, 110, 115, 160 - age * 3));
+		drawManager.fillBox(x, y, w, h, new Color(30, 14, 26));
+		drawManager.fillBox(x + 2, y + h / 2 - 1, w - 4, 2, new Color(80, 32, 66));
+		for (int sx = x + 5; sx < x + w - 4; sx += 6)
+			drawManager.fillBox(sx, y + h / 2 - 3, 1, 6, new Color(50, 20, 42));
+		double glow = 0.5 + 0.5 * Math.sin(this.frame * 0.15);
+		drawManager.fillBox(x + w / 2 - 2, y + h / 2 - 1, 4, 2,
+				alpha(OOZE, 80 + (int) (120 * glow)));
+		for (int drip = 0; drip < 3; drip++) {
+			int length = (this.frame / 3 + drip * 5) % 12;
+			drawManager.fillBox(x + w * (drip + 1) / 4, y + h, 2, length,
+					alpha(OOZE, 200 - length * 12));
 		}
 	}
 
@@ -615,11 +648,6 @@ public final class FortressBoss extends AbstractBoss {
 			drawManager.fillBox(sx, sy, across ? 5 : 1, across ? 1 : 5,
 					new Color(180, 240, 255));
 		}
-	}
-
-	private static Color darker(final Color color) {
-		return new Color(color.getRed() / 2, color.getGreen() / 2,
-				color.getBlue() / 2);
 	}
 
 	/* ---------------- Info ---------------- */
