@@ -32,13 +32,15 @@ public final class RaiderBoss extends AbstractBoss {
 	private enum State { ENTER, PATROL, CHARGE_WARNING, CHARGE, RETURN, DRONES }
 
 	/** Body width. */
-	static final int WIDTH = 100;
+	static final int WIDTH = 128;
 	/** Body height. */
 	static final int HEIGHT = 60;
 	/** Gap between the HUD line and the body at rest, below the health bar. */
 	private static final int HOME_GAP = 36;
 	/** Distance of the guns from the body sides. */
-	private static final int GUN_INSET = 20;
+	private static final int GUN_INSET = 26;
+	/** Width of the fuselage between the wings. */
+	private static final int FUSELAGE = 50;
 	/** Enemy types it can summon, with their balance keys. */
 	private static final EnemyType[] SUMMON_TYPES = {
 			EnemyType.NORMAL, EnemyType.SHOOTER, EnemyType.BAT };
@@ -337,7 +339,7 @@ public final class RaiderBoss extends AbstractBoss {
 		box(drawManager, bx, by + 19, WIDTH, 20, dark);
 		box(drawManager, bx + 4, by + 39, 12, 4, dark);
 		box(drawManager, bx + WIDTH - 16, by + 39, 12, 4, dark);
-		box(drawManager, bx + 25, by, WIDTH - 50, HEIGHT, body);
+		box(drawManager, bx + (WIDTH - FUSELAGE) / 2, by, FUSELAGE, HEIGHT, body);
 		box(drawManager, bx + WIDTH / 2 - 1, by + 4, 2, HEIGHT - 30, dark);
 		box(drawManager, bx + GUN_INSET - 3, by + 39, 6, 17, GUN);
 		box(drawManager, bx + WIDTH - GUN_INSET - 3, by + 39, 6, 17, GUN);
