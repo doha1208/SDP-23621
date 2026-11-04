@@ -35,8 +35,8 @@ public final class RaiderBoss extends AbstractBoss {
 	static final int WIDTH = 72;
 	/** Body height. */
 	static final int HEIGHT = 44;
-	/** Gap between the HUD line and the body at rest. */
-	private static final int HOME_GAP = 16;
+	/** Gap between the HUD line and the body at rest, below the health bar. */
+	private static final int HOME_GAP = 36;
 	/** Distance kept from the screen sides while roaming. */
 	private static final int SIDE_MARGIN = 8;
 	/** Chance per frame to turn around while roaming. */
