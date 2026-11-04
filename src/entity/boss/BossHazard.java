@@ -35,6 +35,8 @@ public final class BossHazard {
 	private final Color color;
 	/** Frames since creation, for blinking. */
 	private int age;
+	/** True when the attack is about to start: faster, brighter blinking. */
+	private boolean urgent;
 
 	/**
 	 * @param x              Left edge.
@@ -80,6 +82,11 @@ public final class BossHazard {
 	void activate(final int frames) {
 		this.phase = Phase.ACTIVE;
 		this.framesLeft = frames;
+	}
+
+	/** Makes the warning blink faster and brighter: the attack is close. */
+	void setUrgent(final boolean urgent) {
+		this.urgent = urgent;
 	}
 
 	/** Ends the zone. */
@@ -129,11 +136,12 @@ public final class BossHazard {
 		if (iw <= 0 || ih <= 0)
 			return;
 		if (this.phase == Phase.WARNING) {
-			boolean bright = (this.age / 6) % 2 == 0;
-			drawManager.fillBox(ix, iy, iw, ih,
-					new Color(255, 60, 60, bright ? 70 : 40));
-			drawManager.drawBox(ix, iy, iw - 1, ih - 1,
-					new Color(255, 80, 80, bright ? 200 : 120));
+			boolean bright = (this.age / (this.urgent ? 3 : 6)) % 2 == 0;
+			int fill = this.urgent ? (bright ? 120 : 60) : (bright ? 70 : 40);
+			drawManager.fillBox(ix, iy, iw, ih, new Color(255, 60, 60, fill));
+			drawManager.drawBox(ix, iy, iw - 1, ih - 1, this.urgent && bright
+					? new Color(255, 230, 120)
+					: new Color(255, 80, 80, bright ? 200 : 120));
 		} else if (this.phase == Phase.ACTIVE) {
 			drawManager.fillBox(ix, iy, iw, ih, this.color);
 			int core = Math.max(2, iw / 3);

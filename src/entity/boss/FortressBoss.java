@@ -106,6 +106,8 @@ public final class FortressBoss extends AbstractBoss {
 	private double columnFront;
 	private int crossfireTimer;
 	private boolean crossfireFromLeft;
+	/** Length of the sweep's lock step, for the charging glow. */
+	private int lockFrames = 1;
 
 	/**
 	 * @param balance Boss balance values.
@@ -300,7 +302,9 @@ public final class FortressBoss extends AbstractBoss {
 					this.height - hullBottom());
 			if (--this.timer <= 0) {
 				this.sweep = Sweep.LOCK;
-				this.timer = this.balance.frames("fortress.sweep.lockTime");
+				this.lockFrames = this.balance.frames("fortress.sweep.lockTime");
+				this.timer = this.lockFrames;
+				this.column.setUrgent(true);
 			}
 			break;
 		case LOCK:
@@ -424,6 +428,9 @@ public final class FortressBoss extends AbstractBoss {
 	@Override
 	public void draw(final DrawManager drawManager) {
 		drawHazards(drawManager);
+		if (this.current == Pattern.SWEEP && this.sweep == Sweep.LOCK
+				&& this.column != null)
+			drawChargingGlow(drawManager);
 		boolean visible = drawDeath(drawManager, this.width / 2.0,
 				hullTop() + HULL_HEIGHT / 2.0, this.width / 2.0, HULL_HEIGHT / 2.0);
 		if (visible)
@@ -431,6 +438,28 @@ public final class FortressBoss extends AbstractBoss {
 		if (getDeathFrames() < 0)
 			for (BossBomb bomb : this.bombs)
 				bomb.draw(drawManager);
+	}
+
+	/**
+	 * Before the rising attack: light gathers at the bottom of the column
+	 * and grows until it fires, with sparks at its top.
+	 */
+	private void drawChargingGlow(final DrawManager drawManager) {
+		double progress = 1 - (double) this.timer / this.lockFrames;
+		int x = (int) Math.round(this.columnX);
+		int w = (int) Math.round(columnWidth());
+		int glow = (int) Math.round(8 + progress * 52);
+		int y = this.height - glow;
+		drawManager.fillBox(x, y, w, glow, new Color(255, 170, 40,
+				(int) (80 + 120 * progress)));
+		drawManager.fillBox(x + w / 3, y, Math.max(2, w / 3), glow,
+				new Color(255, 240, 180));
+		if ((this.frame / 2) % 2 == 0)
+			for (int i = 0; i < 3; i++) {
+				int sx = x + (int) ((i + 0.5) * w / 3) - 1;
+				drawManager.fillBox(sx, y - 4 - ((this.frame + i * 3) % 7), 3, 3,
+						Color.YELLOW);
+			}
 	}
 
 	private void drawHull(final DrawManager drawManager) {

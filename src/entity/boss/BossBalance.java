@@ -58,8 +58,8 @@ public final class BossBalance {
 		d.put("fortress.laser.duration", 1.6);
 		d.put("fortress.laser.width", 80.0);
 		d.put("fortress.sweep.trackTime", 2.0);
-		d.put("fortress.sweep.lockTime", 0.5);
-		d.put("fortress.sweep.riseSpeed", 12.0);
+		d.put("fortress.sweep.lockTime", 0.8);
+		d.put("fortress.sweep.riseSpeed", 10.0);
 		d.put("fortress.sweep.columnWidth", 28.0);
 		d.put("fortress.sweep.crossfireGap", 0.35);
 		d.put("fortress.sweep.crossfireSpeed", 3.0);
