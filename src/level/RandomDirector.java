@@ -14,13 +14,14 @@ import entity.enemy.SpawnRequest;
  * Spawns random formations to keep the stage's pressure up.
  *
  * Every enemy has a threat value; the pressure on screen is the total threat
- * of enemies still alive. While the stage's spawning time lasts, whenever
- * the spawn gap has passed the director picks a formation by weight among
- * the types that fit under the current pressure cap, which rises from
- * pressureStart to pressureEnd over the stage. A formation heavier than the
- * cap may still come when the screen is empty, so every enabled type can
- * appear. The type picked last has its weight halved to avoid long runs of
- * the same enemy.
+ * of enemies still alive. The director draws the next formation's type by
+ * weight in advance, then spawns it once the spawn gap has passed and it
+ * fits under the current pressure cap, which rises from pressureStart to
+ * pressureEnd over the stage. Drawing first keeps the mix true to the
+ * weights however the player plays; the pressure only decides when. A
+ * formation heavier than the cap still comes once the screen is empty. The
+ * type spawned last has its weight halved to avoid long runs of the same
+ * enemy.
  *
  * Time counts active frames only, so pausing and the start countdown do not
  * use it up.
@@ -46,6 +47,8 @@ public final class RandomDirector implements LevelDirector {
 	private int nextSpawnFrame;
 	/** Type spawned last, or null. */
 	private EnemyType lastType;
+	/** Type drawn for the next spawn, waiting to fit; null until drawn. */
+	private EnemyType nextType;
 	/** True once the stage multipliers were handed to the manager. */
 	private boolean modifiersApplied;
 	/** Formations spawned so far. */
@@ -75,11 +78,14 @@ public final class RandomDirector implements LevelDirector {
 		if (this.frame < this.nextSpawnFrame || isFinished())
 			return;
 
-		EnemyType type = pick(manager);
-		if (type == null)
+		if (this.nextType == null)
+			this.nextType = draw();
+		EnemyType type = this.nextType;
+		if (!fits(manager, type))
 			return; // Wait until enough pressure is gone.
 		manager.spawn(SpawnRequest.of(type), playerX, playerY);
 		this.lastType = type;
+		this.nextType = null;
 		this.spawnCount++;
 		double gap = this.settings.getSpawnGap()
 				+ this.random.nextDouble() * this.settings.getSpawnGapRandom();
@@ -108,33 +114,34 @@ public final class RandomDirector implements LevelDirector {
 		return this.spawnCount;
 	}
 
-	/**
-	 * Picks a type by weight among those that fit under the cap.
-	 *
-	 * @param manager Enemy manager, for the current threat and type values.
-	 * @return The type, or null when none fits yet.
-	 */
-	private EnemyType pick(final EnemyManager manager) {
-		double current = manager.currentThreat();
-		boolean screenEmpty = current < EPSILON;
-		double cap = pressureCap();
+	/** @return Type drawn for the next spawn, or null until drawn. */
+	public EnemyType getNextType() {
+		return this.nextType;
+	}
 
+	/**
+	 * @param manager Enemy manager, for the current threat and type values.
+	 * @param type    Type about to spawn.
+	 * @return True if its formation fits under the cap, or the screen is empty.
+	 */
+	private boolean fits(final EnemyManager manager, final EnemyType type) {
+		double current = manager.currentThreat();
+		return current < EPSILON || current + manager.statsOf(type).formationThreat()
+				<= pressureCap() + EPSILON;
+	}
+
+	/** @return A type drawn by weight, the last spawned type at half weight. */
+	private EnemyType draw() {
 		List<EnemyType> candidates = new ArrayList<EnemyType>();
 		List<Double> weights = new ArrayList<Double>();
 		double total = 0;
 		for (Map.Entry<EnemyType, Double> entry : this.settings.getWeights().entrySet()) {
-			EnemyType type = entry.getKey();
-			double cost = manager.statsOf(type).formationThreat();
-			if (!screenEmpty && current + cost > cap + EPSILON)
-				continue;
 			double weight = entry.getValue()
-					* (type == this.lastType ? REPEAT_WEIGHT : 1.0);
-			candidates.add(type);
+					* (entry.getKey() == this.lastType ? REPEAT_WEIGHT : 1.0);
+			candidates.add(entry.getKey());
 			weights.add(weight);
 			total += weight;
 		}
-		if (candidates.isEmpty())
-			return null;
 		double roll = this.random.nextDouble() * total;
 		for (int i = 0; i < candidates.size(); i++) {
 			roll -= weights.get(i);
