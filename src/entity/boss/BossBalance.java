@@ -70,7 +70,10 @@ public final class BossBalance {
 		d.put("raider.patrol.time", 4.0);
 		d.put("raider.patrol.fireGap", 0.7);
 		d.put("raider.patrol.bulletSpeed", 4.0);
-		d.put("raider.patrol.summonGap", 2.5);
+		d.put("raider.patrol.summonGap", 2.0);
+		d.put("raider.patrol.summon.normal", 3.0);
+		d.put("raider.patrol.summon.shooter", 1.0);
+		d.put("raider.patrol.summon.bat", 1.0);
 		d.put("raider.charge.warning", 1.0);
 		d.put("raider.charge.speed", 9.0);
 		d.put("raider.charge.returnSpeed", 3.0);
@@ -109,9 +112,13 @@ public final class BossBalance {
 				throw new IllegalArgumentException(source + ": " + key
 						+ " must be a number, was '" + raw + "'");
 			}
-			if (Double.isNaN(value) || Double.isInfinite(value) || value <= 0)
+			// Summon weights may be 0 to leave a type out; the rest must be > 0.
+			boolean zeroAllowed = key.contains(".summon.");
+			if (Double.isNaN(value) || Double.isInfinite(value) || value < 0
+					|| (value == 0 && !zeroAllowed))
 				throw new IllegalArgumentException(source + ": " + key
-						+ " must be above 0, was '" + raw + "'");
+						+ (zeroAllowed ? " must be 0 or more" : " must be above 0")
+						+ ", was '" + raw + "'");
 			loaded.put(key, value);
 		}
 		this.values = Collections.unmodifiableMap(loaded);

@@ -17,7 +17,7 @@ import entity.enemy.SpawnRequest;
  * Patterns:
  * <ol>
  * <li>Patrol (default): roams left and right, fires down now and then,
- * and summons normal enemy formations.</li>
+ * and summons enemy formations (normal, shooter, bat).</li>
  * <li>Charge: a warning lane, then it charges down spraying bullets to
  * both sides, leaves at the bottom and comes back in from the top.</li>
  * <li>Drones: for a few seconds homing drones come in from every side;
@@ -32,11 +32,16 @@ public final class RaiderBoss extends AbstractBoss {
 	private enum State { ENTER, PATROL, CHARGE_WARNING, CHARGE, RETURN, DRONES }
 
 	/** Body width. */
-	static final int WIDTH = 72;
+	static final int WIDTH = 100;
 	/** Body height. */
-	static final int HEIGHT = 44;
+	static final int HEIGHT = 60;
 	/** Gap between the HUD line and the body at rest, below the health bar. */
 	private static final int HOME_GAP = 36;
+	/** Distance of the guns from the body sides. */
+	private static final int GUN_INSET = 20;
+	/** Enemy types it can summon, with their balance keys. */
+	private static final EnemyType[] SUMMON_TYPES = {
+			EnemyType.NORMAL, EnemyType.SHOOTER, EnemyType.BAT };
 	/** Distance kept from the screen sides while roaming. */
 	private static final int SIDE_MARGIN = 8;
 	/** Chance per frame to turn around while roaming. */
@@ -117,12 +122,12 @@ public final class RaiderBoss extends AbstractBoss {
 			roam(1);
 			if (--this.fireTimer <= 0) {
 				double speed = bulletSpeed("raider.patrol.bulletSpeed");
-				fire(this.x + 14, this.y + HEIGHT, Math.PI / 2, speed);
-				fire(this.x + WIDTH - 14, this.y + HEIGHT, Math.PI / 2, speed);
+				fire(this.x + GUN_INSET, this.y + HEIGHT, Math.PI / 2, speed);
+				fire(this.x + WIDTH - GUN_INSET, this.y + HEIGHT, Math.PI / 2, speed);
 				this.fireTimer = gapFrames("raider.patrol.fireGap");
 			}
 			if (--this.summonTimer <= 0) {
-				this.enemies.spawn(SpawnRequest.of(EnemyType.NORMAL), playerX,
+				this.enemies.spawn(SpawnRequest.of(summonType()), playerX,
 						playerY);
 				this.summonTimer = this.balance.frames("raider.patrol.summonGap");
 			}
@@ -183,6 +188,26 @@ public final class RaiderBoss extends AbstractBoss {
 			this.stateFrames = this.balance.frames("raider.drones.time");
 			this.spawnTimer = 0;
 		}
+	}
+
+	/** @return A summon type drawn by the raider.patrol.summon.* weights. */
+	private EnemyType summonType() {
+		double total = 0;
+		for (EnemyType type : SUMMON_TYPES)
+			total += summonWeight(type);
+		if (total <= 0)
+			return EnemyType.NORMAL;
+		double roll = this.random.nextDouble() * total;
+		for (EnemyType type : SUMMON_TYPES) {
+			roll -= summonWeight(type);
+			if (roll < 0)
+				return type;
+		}
+		return EnemyType.NORMAL;
+	}
+
+	private double summonWeight(final EnemyType type) {
+		return this.balance.get("raider.patrol.summon." + type.getBalanceKey());
 	}
 
 	/** Moves left and right, turning at the sides and now and then. */
@@ -308,14 +333,19 @@ public final class RaiderBoss extends AbstractBoss {
 		boolean white = this.flash > 0;
 		Color body = white ? Color.WHITE : BODY;
 		Color dark = white ? Color.WHITE : BODY_DARK;
-		box(drawManager, bx, by + 14, WIDTH, 14, dark);
-		box(drawManager, bx + 18, by, WIDTH - 36, HEIGHT, body);
-		box(drawManager, bx + 12, by + 28, 4, 12, GUN);
-		box(drawManager, bx + WIDTH - 16, by + 28, 4, 12, GUN);
-		box(drawManager, bx + 30, by + HEIGHT - 16, 12, 9,
+		// Wings, fuselage, guns under the wings, cockpit, engine flame.
+		box(drawManager, bx, by + 19, WIDTH, 20, dark);
+		box(drawManager, bx + 4, by + 39, 12, 4, dark);
+		box(drawManager, bx + WIDTH - 16, by + 39, 12, 4, dark);
+		box(drawManager, bx + 25, by, WIDTH - 50, HEIGHT, body);
+		box(drawManager, bx + WIDTH / 2 - 1, by + 4, 2, HEIGHT - 30, dark);
+		box(drawManager, bx + GUN_INSET - 3, by + 39, 6, 17, GUN);
+		box(drawManager, bx + WIDTH - GUN_INSET - 3, by + 39, 6, 17, GUN);
+		box(drawManager, bx + WIDTH / 2 - 8, by + HEIGHT - 22, 16, 12,
 				white ? Color.WHITE : COCKPIT);
 		if (this.state == State.CHARGE || (this.frame / 3) % 2 == 0)
-			box(drawManager, bx + 26, by - 2, 20, 4, new Color(255, 170, 40));
+			box(drawManager, bx + WIDTH / 2 - 14, by - 3, 28, 5,
+					new Color(255, 170, 40));
 	}
 
 	/** Fills a box, cut off at the HUD line. */
@@ -352,6 +382,16 @@ public final class RaiderBoss extends AbstractBoss {
 	/** @return Drones in flight. */
 	public int getDroneCount() {
 		return this.drones.size();
+	}
+
+	/** @return Body width. */
+	public int getBodyWidth() {
+		return WIDTH;
+	}
+
+	/** @return Body height. */
+	public int getBodyHeight() {
+		return HEIGHT;
 	}
 
 	/** @return Body left edge. */
