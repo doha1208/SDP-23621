@@ -124,6 +124,31 @@ public final class FortressBoss extends AbstractBoss {
 	private boolean crossfireFromLeft;
 	/** Length of the sweep's lock step, for the charging glow. */
 	private int lockFrames = 1;
+	/** Blasts of destroyed cores, still playing. */
+	private final List<Burst> bursts = new ArrayList<Burst>();
+	/** Frames left of the white flash over the hull after a core dies. */
+	private int hullFlash;
+
+	/** Frames a core blast plays. */
+	private static final int BURST_FRAMES = 45;
+	/** Frames the hull flashes white when a core dies. */
+	private static final int HULL_FLASH_FRAMES = 8;
+	/** Debris pieces thrown out by a core blast. */
+	private static final int DEBRIS = 14;
+
+	/** The blast where a core was destroyed. */
+	private static final class Burst {
+		final double x;
+		final double y;
+		final long seed;
+		int age;
+
+		Burst(final double x, final double y, final long seed) {
+			this.x = x;
+			this.y = y;
+			this.seed = seed;
+		}
+	}
 
 	/**
 	 * @param balance Boss balance values.
@@ -369,6 +394,9 @@ public final class FortressBoss extends AbstractBoss {
 			core.flash = FLASH_FRAMES;
 			if (core.alive())
 				return BossHit.damage(bulletX, coreBottom(core));
+			this.bursts.add(new Burst(coreCenterX(core),
+					core.y + core.height / 2, this.frame * 31L + (long) core.centerX));
+			this.hullFlash = HULL_FLASH_FRAMES;
 			int points = (int) Math.round(this.balance.get("fortress.corePoints"));
 			boolean beaten = !this.left.alive() && !this.center.alive()
 					&& !this.right.alive();
@@ -397,6 +425,22 @@ public final class FortressBoss extends AbstractBoss {
 		return false;
 	}
 
+	@Override
+	protected void tickEffects() {
+		if (this.hullFlash > 0)
+			this.hullFlash--;
+		Iterator<Burst> it = this.bursts.iterator();
+		while (it.hasNext())
+			if (++it.next().age >= BURST_FRAMES)
+				it.remove();
+	}
+
+	/** @return Core blasts still playing. */
+	public int getBurstCount() {
+		return this.bursts.size();
+	}
+
+	// Bursts are kept here, so the last core's blast plays over the defeat.
 	@Override
 	protected void clearParts() {
 		this.bombs.clear();
@@ -450,11 +494,89 @@ public final class FortressBoss extends AbstractBoss {
 			drawChargingGlow(drawManager);
 		boolean visible = drawDeath(drawManager, this.width / 2.0,
 				hullTop() + HULL_HEIGHT / 2.0, this.width / 2.0, HULL_HEIGHT / 2.0);
-		if (visible)
+		if (visible) {
 			drawHull(drawManager);
+			if (this.hullFlash > 0)
+				drawManager.fillBox((int) Math.round(-HULL_OVERHANG + this.sway),
+						(int) Math.round(hullTop()), this.width + 2 * HULL_OVERHANG,
+						HULL_HEIGHT, new Color(255, 255, 255,
+								25 * this.hullFlash));
+		}
 		if (getDeathFrames() < 0)
 			for (BossBomb bomb : this.bombs)
 				bomb.draw(drawManager);
+		for (Burst burst : this.bursts)
+			drawBurst(drawManager, burst);
+	}
+
+	/**
+	 * A core blast: a white flash, a growing fireball, two shock rings and
+	 * flying debris, all fading out.
+	 */
+	private void drawBurst(final DrawManager drawManager, final Burst burst) {
+		int age = burst.age;
+		double t = (double) age / BURST_FRAMES;
+		double fade = 1 - t;
+		int cx = (int) Math.round(burst.x);
+		int cy = (int) Math.round(burst.y);
+
+		// Fireball: white at first, then green, growing and fading.
+		if (age < 20) {
+			int r = 6 + age * 2;
+			double heat = age / 20.0;
+			Color ball = mix(Color.WHITE, IRIS, heat);
+			drawManager.fillBox(cx - r, cy - r / 2, 2 * r, r,
+					alpha(ball, (int) (220 * (1 - heat))));
+			drawManager.fillBox(cx - r / 2, cy - r, r, 2 * r,
+					alpha(ball, (int) (220 * (1 - heat))));
+			int inner = Math.max(2, r / 2);
+			drawManager.fillBox(cx - inner, cy - inner, 2 * inner, 2 * inner,
+					alpha(Color.WHITE, (int) (255 * (1 - heat))));
+		}
+
+		// Two shock rings: a green one, and a slower magenta one.
+		drawRing(drawManager, cx, cy, 8 + age * 2.6, alpha(POD_BRIGHT,
+				(int) (230 * fade)), 18, 3);
+		if (age > 4)
+			drawRing(drawManager, cx, cy, 4 + (age - 4) * 1.6, alpha(GILL_GLOW,
+					(int) (200 * fade)), 14, 2);
+
+		// Debris flying out and falling.
+		Random pieces = new Random(burst.seed);
+		Color[] colors = { HULL_LIGHT, OOZE, GILL_GLOW, SHINE };
+		for (int i = 0; i < DEBRIS; i++) {
+			double angle = pieces.nextDouble() * 2 * Math.PI;
+			double speed = 1.2 + pieces.nextDouble() * 2.4;
+			int size = 2 + pieces.nextInt(3);
+			Color color = colors[pieces.nextInt(colors.length)];
+			double dx = Math.cos(angle) * speed * age;
+			double dy = Math.sin(angle) * speed * age + 0.06 * age * age;
+			drawManager.fillBox((int) Math.round(cx + dx) - size / 2,
+					(int) Math.round(cy + dy) - size / 2, size, size,
+					alpha(color, (int) (255 * fade)));
+		}
+
+		// Bright sparks right after the hit.
+		if (age < 12 && age % 2 == 0)
+			for (int i = 0; i < 8; i++) {
+				double angle = Math.PI / 4 * i + age * 0.2;
+				double d = 6 + age * 3;
+				drawManager.fillBox((int) Math.round(cx + Math.cos(angle) * d) - 1,
+						(int) Math.round(cy + Math.sin(angle) * d) - 1, 3, 3,
+						Color.WHITE);
+			}
+	}
+
+	/** A dotted ring of square points. */
+	private static void drawRing(final DrawManager drawManager, final int cx,
+			final int cy, final double radius, final Color color, final int points,
+			final int size) {
+		for (int i = 0; i < points; i++) {
+			double angle = 2 * Math.PI * i / points;
+			drawManager.fillBox((int) Math.round(cx + Math.cos(angle) * radius)
+					- size / 2, (int) Math.round(cy + Math.sin(angle) * radius)
+					- size / 2, size, size, color);
+		}
 	}
 
 	/**

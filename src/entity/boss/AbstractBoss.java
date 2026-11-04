@@ -82,11 +82,13 @@ abstract class AbstractBoss implements BossFight {
 			if (this.deathFrames == 0)
 				clearField(manager);
 			this.deathFrames++;
+			tickEffects();
 			return;
 		}
 		if (frozen)
 			return;
 		this.frame++;
+		tickEffects();
 		tickParts(playerX, playerY);
 		if (this.stunFrames > 0) {
 			this.stunFrames--;
@@ -107,6 +109,14 @@ abstract class AbstractBoss implements BossFight {
 
 	/** Runs the current pattern for one frame. */
 	protected abstract void act(double playerX, double playerY);
+
+
+	/**
+	 * Advances visual effects; runs while stunned and during the defeat
+	 * explosion too, so effects started by the last blow finish playing.
+	 */
+	protected void tickEffects() {
+	}
 
 	/** Drops everything the boss has in flight (bombs, drones...). */
 	protected abstract void clearParts();
