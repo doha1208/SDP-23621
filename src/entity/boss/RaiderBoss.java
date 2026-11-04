@@ -57,6 +57,13 @@ public final class RaiderBoss extends AbstractBoss {
 	private static final Color BODY_DARK = new Color(200, 105, 85);
 	private static final Color COCKPIT = new Color(20, 90, 130);
 	private static final Color GUN = new Color(150, 150, 160);
+	private static final Color GUN_DARK = new Color(70, 70, 80);
+	private static final Color BODY_LIGHT = new Color(255, 190, 160);
+	private static final Color WING = new Color(222, 128, 100);
+	private static final Color ACCENT = new Color(210, 50, 50);
+	private static final Color NACELLE = new Color(120, 120, 135);
+	private static final Color NACELLE_LIGHT = new Color(170, 170, 185);
+	private static final Color CANOPY_SHINE = new Color(170, 230, 255);
 
 	private final int maxHealth;
 	private int health;
@@ -334,20 +341,122 @@ public final class RaiderBoss extends AbstractBoss {
 		int by = (int) Math.round(this.y);
 		boolean white = this.flash > 0;
 		Color body = white ? Color.WHITE : BODY;
+		Color light = white ? Color.WHITE : BODY_LIGHT;
 		Color dark = white ? Color.WHITE : BODY_DARK;
-		// Wings, fuselage, guns under the wings, cockpit, engine flame.
-		box(drawManager, bx, by + 19, WIDTH, 20, dark);
-		box(drawManager, bx + 4, by + 39, 12, 4, dark);
-		box(drawManager, bx + WIDTH - 16, by + 39, 12, 4, dark);
-		box(drawManager, bx + (WIDTH - FUSELAGE) / 2, by, FUSELAGE, HEIGHT, body);
-		box(drawManager, bx + WIDTH / 2 - 1, by + 4, 2, HEIGHT - 30, dark);
-		box(drawManager, bx + GUN_INSET - 3, by + 39, 6, 17, GUN);
-		box(drawManager, bx + WIDTH - GUN_INSET - 3, by + 39, 6, 17, GUN);
-		box(drawManager, bx + WIDTH / 2 - 8, by + HEIGHT - 22, 16, 12,
-				white ? Color.WHITE : COCKPIT);
-		if (this.state == State.CHARGE || (this.frame / 3) % 2 == 0)
-			box(drawManager, bx + WIDTH / 2 - 14, by - 3, 28, 5,
-					new Color(255, 170, 40));
+		Color wing = white ? Color.WHITE : WING;
+		int cx = bx + WIDTH / 2;
+
+		drawExhaust(drawManager, cx, by);
+
+		// Tail: fins and stabilisers at the back (top).
+		pair(drawManager, cx, by, 6, 0, 8, 10, dark);
+		pair(drawManager, cx, by, 14, 4, 14, 6, dark);
+
+		// Swept wings, stepping up toward the tips, with a lit leading edge.
+		pair(drawManager, cx, by, 20, 24, 24, 18, wing);
+		pair(drawManager, cx, by, 44, 20, 12, 16, wing);
+		pair(drawManager, cx, by, 56, 16, 8, 14, wing);
+		pair(drawManager, cx, by, 20, 40, 24, 2, light);
+		pair(drawManager, cx, by, 44, 34, 12, 2, light);
+		pair(drawManager, cx, by, 56, 28, 8, 2, light);
+		pair(drawManager, cx, by, 20, 24, 44, 1, dark);
+		// Wing markings and navigation lights (red left, green right).
+		pair(drawManager, cx, by, 46, 24, 8, 6, white ? Color.WHITE : ACCENT);
+		pair(drawManager, cx, by, 48, 26, 4, 2, Color.WHITE);
+		if ((this.frame / 15) % 2 == 0 && !white) {
+			box(drawManager, cx - 62, by + 18, 3, 3, new Color(255, 60, 60));
+			box(drawManager, cx + 59, by + 18, 3, 3, new Color(80, 255, 120));
+		}
+
+		// Engine pods under the wings, with gun barrels.
+		pair(drawManager, cx, by, 32, 22, 12, 24, white ? Color.WHITE : NACELLE);
+		pair(drawManager, cx, by, 32, 22, 2, 24, white ? Color.WHITE : NACELLE_LIGHT);
+		pair(drawManager, cx, by, 32, 44, 12, 3, white ? Color.WHITE : GUN_DARK);
+		pair(drawManager, cx, by, 36, 47, 4, 10, white ? Color.WHITE : GUN);
+		if (this.state == State.PATROL
+				&& gapFrames("raider.patrol.fireGap") - this.fireTimer < 4)
+			pair(drawManager, cx, by, 35, 57, 6, 4, Color.YELLOW);
+
+		// Fuselage, narrowing to the nose (bottom).
+		box(drawManager, cx - 18, by, 36, 4, dark);
+		box(drawManager, cx - FUSELAGE / 2, by + 4, FUSELAGE, 40, body);
+		box(drawManager, cx - 19, by + 44, 38, 8, body);
+		box(drawManager, cx - 12, by + 52, 24, 6, body);
+		box(drawManager, cx - 6, by + 58, 12, 2, dark);
+		// Light left side, dark right side, panel seams and rivets.
+		box(drawManager, cx - FUSELAGE / 2, by + 4, 3, 40, light);
+		box(drawManager, cx + FUSELAGE / 2 - 3, by + 4, 3, 40, dark);
+		box(drawManager, cx - 1, by + 6, 2, 26, dark);
+		box(drawManager, cx - FUSELAGE / 2 + 3, by + 16, FUSELAGE - 6, 1, dark);
+		box(drawManager, cx - FUSELAGE / 2 + 3, by + 30, FUSELAGE - 6, 1, dark);
+		for (int rx = cx - 20; rx <= cx + 18; rx += 8)
+			box(drawManager, rx, by + 33, 2, 2, dark);
+
+		// Cockpit canopy with frame and shine.
+		Color canopy = white ? Color.WHITE
+				: this.state == State.CHARGE_WARNING && (this.frame / 4) % 2 == 0
+						? new Color(200, 40, 40) : COCKPIT;
+		box(drawManager, cx - 8, by + 36, 16, 14, canopy);
+		box(drawManager, cx - 8, by + 42, 16, 1, dark);
+		box(drawManager, cx - 6, by + 38, 3, 3, white ? Color.WHITE : CANOPY_SHINE);
+
+		drawDamage(drawManager, cx, by);
+	}
+
+	/** Engine flame behind the raider (top); longer while charging. */
+	private void drawExhaust(final DrawManager drawManager, final int cx,
+			final int by) {
+		int flicker = (this.frame / 2) % 3;
+		int length;
+		Color outer;
+		Color inner;
+		if (this.state == State.CHARGE) {
+			length = 12 + flicker * 2;
+			outer = new Color(255, 120, 40);
+			inner = Color.YELLOW;
+		} else if (this.state == State.CHARGE_WARNING) {
+			length = 6 + flicker * 2;
+			outer = new Color(120, 180, 255);
+			inner = Color.WHITE;
+		} else {
+			length = 4 + flicker;
+			outer = new Color(255, 150, 40);
+			inner = new Color(255, 230, 120);
+		}
+		box(drawManager, cx - 10, by - length, 20, length, outer);
+		box(drawManager, cx - 5, by - length + 2, 10, length - 2, inner);
+	}
+
+	/** Smoke and sparks once the raider is badly hurt. */
+	private void drawDamage(final DrawManager drawManager, final int cx,
+			final int by) {
+		if (this.health * 2 > this.maxHealth)
+			return;
+		for (int puff = 0; puff < 2; puff++) {
+			int age = (this.frame + puff * 17) % 34;
+			int side = puff == 0 ? -40 : 34;
+			int size = 4 + age / 7;
+			box(drawManager, cx + side, by + 22 - age, size, size,
+					new Color(100, 100, 105, 170 - age * 4));
+		}
+		if (this.health * 4 <= this.maxHealth && (this.frame / 3) % 2 == 0)
+			box(drawManager, cx + 10 - (this.frame % 7) * 4, by + 20, 3, 3,
+					new Color(255, 200, 60));
+	}
+
+	/**
+	 * Fills a box and its mirror image across the body's center line.
+	 *
+	 * @param cx     Center line x.
+	 * @param by     Body top.
+	 * @param inner  Distance from the center line to the box's inner edge.
+	 * @param dy     Top of the box below the body top.
+	 */
+	private void pair(final DrawManager drawManager, final int cx, final int by,
+			final int inner, final int dy, final int w, final int h,
+			final Color color) {
+		box(drawManager, cx - inner - w, by + dy, w, h, color);
+		box(drawManager, cx + inner, by + dy, w, h, color);
 	}
 
 	/** Fills a box, cut off at the HUD line. */
