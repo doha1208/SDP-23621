@@ -46,7 +46,7 @@ import entity.enemy.Enemy;
 import entity.enemy.EnemyBullet;
 import entity.enemy.EnemyManager;
 import entity.enemy.LevelDirector;
-import entity.enemy.WaveScript;
+import level.LevelDirectors;
 import entity.Particle;
 import entity.Ship;
 import item.ItemSystem;
@@ -375,7 +375,7 @@ public class GameScreen extends Screen {
 					? new MidBoss(this.width / 2 - 16, 60, DrawManager.SpriteType.MidBoss1)
 					: new FinalBoss(this.width / 2 - 24, 60, DrawManager.SpriteType.FinalBoss1);
 		} else {
-			this.levelDirector = WaveScript.forLevel(this.level);
+			this.levelDirector = LevelDirectors.forLevel(this.level);
 		}
 		// Skin chosen in Customize (GoG - Currency System).
 		this.skin = PurchaseManager.getInstance().getSelectedSkin();
