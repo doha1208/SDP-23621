@@ -2,20 +2,22 @@ package entity.enemy;
 
 import java.awt.Color;
 
+import engine.DrawManager;
 import engine.DrawManager.SpriteType;
 import entity.Entity;
 
 /**
  * A bullet fired by an enemy. Kept separate from {@link entity.Bullet},
- * which the player and the bosses use, so enemy shots can fly in any
- * direction without changing the shared bullet class. Moves with sub-pixel
- * precision so aimed shots keep their angle.
+ * which the player uses, so enemy shots can fly in any direction without
+ * changing the shared bullet class. Moves with sub-pixel precision so aimed
+ * shots keep their angle, and is drawn and hit-tested along its direction
+ * of flight.
  */
 public final class EnemyBullet extends Entity {
 
-	/** Width on screen, same as an ordinary bullet. */
+	/** Thickness of the bullet (its width when flying straight down). */
 	public static final int WIDTH = 6;
-	/** Height on screen, same as an ordinary bullet. */
+	/** Length of the bullet (its height when flying straight down). */
 	public static final int HEIGHT = 10;
 
 	/** Exact x of the upper left corner. */
@@ -26,6 +28,9 @@ public final class EnemyBullet extends Entity {
 	private final double velocityX;
 	/** Vertical speed, pixels per frame, positive is down. */
 	private final double velocityY;
+	/** Unit direction of flight. */
+	private final double directionX;
+	private final double directionY;
 
 	/**
 	 * @param centerX   Center x where the bullet appears.
@@ -35,14 +40,34 @@ public final class EnemyBullet extends Entity {
 	 */
 	public EnemyBullet(final double centerX, final double centerY,
 			final double velocityX, final double velocityY) {
-		super((int) Math.round(centerX - WIDTH / 2.0),
-				(int) Math.round(centerY - HEIGHT / 2.0), WIDTH, HEIGHT,
+		super((int) Math.round(centerX - boxWidth(velocityX, velocityY) / 2.0),
+				(int) Math.round(centerY - boxHeight(velocityX, velocityY) / 2.0),
+				boxWidth(velocityX, velocityY), boxHeight(velocityX, velocityY),
 				Color.WHITE);
 		this.spriteType = SpriteType.EnemyBullet;
-		this.x = centerX - WIDTH / 2.0;
-		this.y = centerY - HEIGHT / 2.0;
+		this.x = centerX - this.width / 2.0;
+		this.y = centerY - this.height / 2.0;
 		this.velocityX = velocityX;
 		this.velocityY = velocityY;
+		double speed = Math.hypot(velocityX, velocityY);
+		this.directionX = speed > 0 ? velocityX / speed : 0;
+		this.directionY = speed > 0 ? velocityY / speed : 1;
+	}
+
+	/**
+	 * Hit box that follows the direction: 6x10 straight down, 10x6 sideways,
+	 * about 9x9 diagonally.
+	 */
+	private static int boxWidth(final double vx, final double vy) {
+		double speed = Math.hypot(vx, vy);
+		double across = speed > 0 ? Math.abs(vx) / speed : 0;
+		return (int) Math.round(WIDTH + (HEIGHT - WIDTH) * across);
+	}
+
+	private static int boxHeight(final double vx, final double vy) {
+		double speed = Math.hypot(vx, vy);
+		double down = speed > 0 ? Math.abs(vy) / speed : 1;
+		return (int) Math.round(WIDTH + (HEIGHT - WIDTH) * down);
 	}
 
 	/** Moves the bullet one frame. */
@@ -54,14 +79,35 @@ public final class EnemyBullet extends Entity {
 	}
 
 	/**
+	 * Draws the bullet pointing where it flies: a short shaft with a cross
+	 * bar at its front, like the old sprite but turned.
+	 *
+	 * @param drawManager Drawing target.
+	 */
+	public void draw(final DrawManager drawManager) {
+		double cx = this.x + this.width / 2.0;
+		double cy = this.y + this.height / 2.0;
+		Color color = getColor();
+		for (int step = -4; step <= 4; step += 2)
+			drawManager.fillBox((int) Math.round(cx + this.directionX * step) - 1,
+					(int) Math.round(cy + this.directionY * step) - 1, 2, 2, color);
+		// Cross bar at the front, across the direction of flight.
+		double frontX = cx + this.directionX * 4;
+		double frontY = cy + this.directionY * 4;
+		for (int side = -2; side <= 2; side += 2)
+			drawManager.fillBox((int) Math.round(frontX - this.directionY * side) - 1,
+					(int) Math.round(frontY + this.directionX * side) - 1, 2, 2, color);
+	}
+
+	/**
 	 * @param width  Screen width.
 	 * @param height Screen height.
 	 * @param top    Top of the play area.
 	 * @return True once the bullet has left the play area.
 	 */
 	public boolean isOutside(final int width, final int height, final int top) {
-		return this.y + HEIGHT < top || this.y > height
-				|| this.x + WIDTH < 0 || this.x > width;
+		return this.y + this.height < top || this.y > height
+				|| this.x + this.width < 0 || this.x > width;
 	}
 
 	/** @return Horizontal speed, pixels per frame. */

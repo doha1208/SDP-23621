@@ -151,8 +151,7 @@ public final class EnemyManager implements Iterable<Enemy> {
 						enemy.getDrawX(), enemy.getDrawY(),
 						enemy.getPixelSize(), enemy.getDrawColor());
 		for (EnemyBullet bullet : this.bullets)
-			drawManager.drawEntity(bullet, bullet.getPositionX(),
-					bullet.getPositionY());
+			bullet.draw(drawManager);
 	}
 
 	/**
