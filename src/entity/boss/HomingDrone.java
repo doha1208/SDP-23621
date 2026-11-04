@@ -26,6 +26,19 @@ final class HomingDrone {
 	private int health;
 	private int flash;
 	private boolean dead;
+	/** Frames alive, for the spin and the trail. */
+	private int age;
+	/** Recent positions, oldest first, for the glowing trail. */
+	private final double[] trailX = new double[TRAIL];
+	private final double[] trailY = new double[TRAIL];
+
+	/** Trail length in samples. */
+	private static final int TRAIL = 4;
+	/** Frames between trail samples. */
+	private static final int TRAIL_GAP = 3;
+	private static final Color SHELL = new Color(150, 50, 210);
+	private static final Color HEART = new Color(240, 120, 255);
+	private static final Color SPARK = new Color(140, 245, 255);
 
 	/**
 	 * @param x           Center x.
@@ -46,6 +59,10 @@ final class HomingDrone {
 		this.turnRate = turnRate;
 		this.chaseFrames = chaseFrames;
 		this.health = health;
+		for (int i = 0; i < TRAIL; i++) {
+			this.trailX[i] = x;
+			this.trailY[i] = y;
+		}
 	}
 
 	/** Moves one frame toward the player while chasing. */
@@ -54,6 +71,12 @@ final class HomingDrone {
 			return;
 		if (this.flash > 0)
 			this.flash--;
+		if (++this.age % TRAIL_GAP == 0) {
+			System.arraycopy(this.trailX, 1, this.trailX, 0, TRAIL - 1);
+			System.arraycopy(this.trailY, 1, this.trailY, 0, TRAIL - 1);
+			this.trailX[TRAIL - 1] = this.x;
+			this.trailY[TRAIL - 1] = this.y;
+		}
 		if (this.chaseFrames > 0) {
 			this.chaseFrames--;
 			double wanted = Math.atan2(playerY - this.y, playerX - this.x);
@@ -111,15 +134,35 @@ final class HomingDrone {
 	void draw(final DrawManager drawManager) {
 		if (this.dead)
 			return;
-		int ix = (int) Math.round(this.x) - SIZE / 2;
-		int iy = (int) Math.round(this.y) - SIZE / 2;
-		drawManager.fillBox(ix, iy, SIZE, SIZE,
-				this.flash > 0 ? Color.WHITE : new Color(230, 40, 40));
-		drawManager.fillBox(ix + 3, iy + 3, SIZE - 6, SIZE - 6,
-				new Color(90, 0, 0));
-		// Nose shows where it is heading.
-		int nx = (int) Math.round(this.x + Math.cos(this.heading) * (SIZE / 2.0));
-		int ny = (int) Math.round(this.y + Math.sin(this.heading) * (SIZE / 2.0));
-		drawManager.fillBox(nx - 2, ny - 2, 4, 4, Color.YELLOW);
+		boolean white = this.flash > 0;
+		// Fading trail of light behind it.
+		for (int i = 0; i < TRAIL; i++) {
+			int size = 2 + i;
+			drawManager.fillBox((int) Math.round(this.trailX[i]) - size / 2,
+					(int) Math.round(this.trailY[i]) - size / 2, size, size,
+					new Color(240, 120, 255, 50 + 35 * i));
+		}
+		int cx = (int) Math.round(this.x);
+		int cy = (int) Math.round(this.y);
+		Color shell = white ? Color.WHITE : SHELL;
+		Color heart = white ? Color.WHITE : HEART;
+		// A spinning crystal: a diamond, then a square with spikes, in turn.
+		if ((this.age / 5) % 2 == 0) {
+			drawManager.fillBox(cx - 2, cy - 6, 4, 12, shell);
+			drawManager.fillBox(cx - 4, cy - 4, 8, 8, shell);
+			drawManager.fillBox(cx - 6, cy - 2, 12, 4, shell);
+		} else {
+			drawManager.fillBox(cx - 4, cy - 4, 8, 8, shell);
+			for (int dx = -1; dx <= 1; dx += 2)
+				for (int dy = -1; dy <= 1; dy += 2)
+					drawManager.fillBox(cx + dx * 5 - 1, cy + dy * 5 - 1, 2, 2, shell);
+		}
+		drawManager.fillBox(cx - 2, cy - 2, 4, 4, heart);
+		boolean pulse = (this.age / 4) % 2 == 0;
+		drawManager.fillBox(cx - 1, cy - 1, 2, 2, pulse ? Color.WHITE : SPARK);
+		// A spark at the front shows where it is heading.
+		int nx = (int) Math.round(this.x + Math.cos(this.heading) * (SIZE / 2.0 + 2));
+		int ny = (int) Math.round(this.y + Math.sin(this.heading) * (SIZE / 2.0 + 2));
+		drawManager.fillBox(nx - 1, ny - 1, 3, 3, white ? Color.WHITE : SPARK);
 	}
 }

@@ -106,14 +106,23 @@ final class BossBomb {
 		// Target marker, so the burst spot can be read in advance.
 		int tx = (int) Math.round(this.targetX);
 		int ty = (int) Math.round(this.targetY);
-		Color marker = new Color(255, 200, 60, 110);
-		drawManager.fillBox(tx - 8, ty, 17, 1, marker);
-		drawManager.fillBox(tx, ty - 8, 1, 17, marker);
+		Color marker = new Color(120, 255, 150, 110);
+		drawManager.fillBox(tx - 8, ty, 6, 1, marker);
+		drawManager.fillBox(tx + 3, ty, 6, 1, marker);
+		drawManager.fillBox(tx, ty - 8, 1, 6, marker);
+		drawManager.fillBox(tx, ty + 3, 1, 6, marker);
+		// A spore pod: a rounded green shell, a pulsing heart and spines.
 		boolean bright = (this.age / 4) % 2 == 0;
-		int ix = (int) Math.round(this.x) - SIZE / 2;
-		int iy = (int) Math.round(this.y) - SIZE / 2;
-		drawManager.fillBox(ix, iy, SIZE, SIZE,
-				bright ? new Color(255, 70, 50) : new Color(200, 30, 30));
-		drawManager.fillBox(ix + 3, iy + 3, SIZE - 6, SIZE - 6, Color.YELLOW);
+		int cx = (int) Math.round(this.x);
+		int cy = (int) Math.round(this.y);
+		Color shell = new Color(40, 130, 70);
+		drawManager.fillBox(cx - 3, cy - 5, 6, 10, shell);
+		drawManager.fillBox(cx - 5, cy - 3, 10, 6, shell);
+		drawManager.fillBox(cx - 2, cy - 2, 4, 4,
+				bright ? new Color(190, 255, 140) : new Color(110, 220, 90));
+		Color spine = bright ? new Color(190, 255, 150) : new Color(70, 170, 90);
+		for (int dx = -1; dx <= 1; dx += 2)
+			for (int dy = -1; dy <= 1; dy += 2)
+				drawManager.fillBox(cx + dx * 5 - 1, cy + dy * 5 - 1, 2, 2, spine);
 	}
 }
