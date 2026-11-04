@@ -38,10 +38,11 @@ import entity.BulletPool;
 import entity.Coin;
 import entity.CoinPool;
 import entity.EnemyShip;
-import entity.Boss;
-import entity.MidBoss;
-import entity.FinalBoss;
 import entity.Entity;
+import entity.boss.BossFight;
+import entity.boss.BossHit;
+import entity.boss.BossHud;
+import entity.boss.BossRoster;
 import entity.enemy.Enemy;
 import entity.enemy.EnemyBullet;
 import entity.enemy.EnemyManager;
@@ -307,8 +308,8 @@ public class GameScreen extends Screen {
 	/** Pending diamonds the level started with, restored by "Restart". */
 	private final int initialPendingDiamonds;
 
-	/** Boss encounter; normal stages use enemyManager instead. */
-	private Boss midBoss;
+	/** Boss of stages 5 and 10 (Team CS boss overhaul); null on normal stages. */
+	private BossFight boss;
 
 	/**
 	 * Constructor, establishes the properties of the screen.
@@ -371,10 +372,11 @@ public class GameScreen extends Screen {
 		this.enemyManager = new EnemyManager(this.width, this.height,
 				SEPARATION_LINE_HEIGHT);
 		if (this.level == 5 || this.level == 10) {
-			this.midBoss = this.level == 5
-					? new MidBoss(this.width / 2 - 16, 60, DrawManager.SpriteType.MidBoss1)
-					: new FinalBoss(this.width / 2 - 24, 60, DrawManager.SpriteType.FinalBoss1);
+			this.boss = BossRoster.create(this.level, this.width, this.height,
+					SEPARATION_LINE_HEIGHT);
+			this.levelDirector = null;
 		} else {
+			this.boss = null;
 			this.levelDirector = LevelDirectors.forLevel(this.level);
 		}
 		// Skin chosen in Customize (GoG - Currency System).
@@ -558,22 +560,17 @@ public class GameScreen extends Screen {
 			}
 
 			this.ship.update();
-			if (this.midBoss != null) {
-				if (!this.items.enemiesFrozen()) {
-					this.midBoss.update();
-					this.midBoss.moveBoss(this.width, this.height, this.gameSettings);
-				}
-				this.midBoss.setTarget(
-						this.ship.getPositionX() + this.ship.getWidth() / 2,
-						this.ship.getPositionY() + this.ship.getHeight() / 2);
-				this.midBoss.shoot(this.bullets, this.gameSettings);
-			} else {
+			if (this.boss != null)
+				this.boss.update(this.enemyManager, playerCenterX(),
+						playerCenterY(), this.items.enemiesFrozen());
+			else
 				this.levelDirector.update(this.enemyManager, playerCenterX(),
 						playerCenterY());
-				this.enemyManager.updateEnemies(this.items.enemiesFrozen(),
-						playerCenterX(), playerCenterY());
+			// Boss stages use it too, for boss bullets and summoned enemies.
+			this.enemyManager.updateEnemies(this.items.enemiesFrozen(),
+					playerCenterX(), playerCenterY());
+			if (this.boss == null)
 				this.meteors.trySpawn(this.enemyManager.countOnScreen(), this.ship); // VFX meteor needs a normal stage.
-			}
 			updateLowHealthEffect();
 			this.ship.setBlinking(this.lowHealthActive);
 		}
@@ -602,8 +599,8 @@ public class GameScreen extends Screen {
 			return;
 		}
 
-		boolean isCleared = this.midBoss != null
-				? this.midBoss.isDestroyed()
+		boolean isCleared = this.boss != null
+				? this.boss.isFinished()
 				: this.levelDirector.isFinished() && this.enemyManager.isEmpty();
 		if ((isCleared || this.lives == 0)
 				&& !this.levelFinished) {
@@ -670,8 +667,8 @@ public class GameScreen extends Screen {
 		this.enemyManager.removeDestroyed();
 		this.enemyManager.clearBullets();
 		this.shrinkingEnemies = new LinkedHashMap<Entity, Long>();
-		if (this.midBoss != null)
-			this.midBoss.destroy();
+		if (this.boss != null)
+			this.boss.stop();
 
 		this.gameOverRowInterval = GAME_OVER_ROW_INTERVAL_START;
 		this.gameOverRowCooldown = Core.getCooldown(GAME_OVER_PAUSE);
@@ -841,10 +838,6 @@ public class GameScreen extends Screen {
 
 	/** Resumes the level without consuming the boss's warning time. */
 	private void resumeGameplay() {
-		if (this.paused && this.midBoss instanceof FinalBoss) {
-			((FinalBoss) this.midBoss).resumeAfterPause(
-					System.currentTimeMillis() - this.pauseStartedAt);
-		}
 		this.paused = false;
 		this.pauseStartedAt = 0;
 	}
@@ -907,14 +900,9 @@ public class GameScreen extends Screen {
 						this.enemyShipSpecial.getPositionX(),
 						this.enemyShipSpecial.getPositionY());
 
-			if (this.midBoss != null) {
-				if (this.midBoss.isVisible())
-					drawManager.drawEntity((Entity) this.midBoss,
-							this.midBoss.getPositionX(), this.midBoss.getPositionY());
-				this.midBoss.drawWarnings(drawManager);
-			} else {
-				this.enemyManager.draw(drawManager);
-			}
+			if (this.boss != null)
+				this.boss.draw(drawManager);
+			this.enemyManager.draw(drawManager);
 
 			// Hit sparkles move with the game world.
 			drawManager.drawParticles(this, this.particles,
@@ -964,7 +952,7 @@ public class GameScreen extends Screen {
 		drawManager.drawItemHud(this, this.items); // Item System (Team CS)
 		// Boss health bar: fixed overlay a row below the item HUD slots
 		// (y 43-59, Team CS), so the two never collide.
-		drawManager.drawBossHealthBar(this, this.midBoss, 64);
+		BossHud.drawHealthBar(drawManager, this, this.boss, 64);
 		// Low-health glitch (covers game + HUD). AUTHORED BY: VFX TEAM (Effection)
 		this.glitch.setEnabled(this.lowHealthActive && !this.levelFinished);
 		drawManager.drawGlitch(this, this.glitch);
@@ -1075,21 +1063,8 @@ public class GameScreen extends Screen {
 					hitPlayer();
 				}
 			} else {
-				if (this.level == 5 || this.level == 10) {
-					if (this.midBoss != null
-							&& !this.midBoss.isDestroyed()
-							&& checkCollision(bullet, (Entity) this.midBoss)) {
-						this.score += this.midBoss.manageCollisionsBoss(bullet);
-						if (this.midBoss.isDestroyed()) {
-							this.shipsDestroyed++;
-							this.screenShake.trigger();
-							showUnlockedAchievement(Core.getAchievementManager()
-									.recordBossDefeated());
-							showUnlockedAchievement(Core.getAchievementManager()
-									.recordEnemyDefeated());
-						}
-						recyclable.add(bullet);
-					}
+				if (this.boss != null && manageBossHit(bullet)) {
+					recyclable.add(bullet);
 				} else {
 					for (Enemy enemy : this.enemyManager) {
 						if (enemy.isHittable()
@@ -1155,9 +1130,39 @@ public class GameScreen extends Screen {
 	}
 
 	/**
-	 * Enemy bullets and enemy bodies hitting the player (Team CS enemy
-	 * overhaul). A rammed enemy is destroyed without rewards; a tough one
-	 * only loses one hit point.
+	 * A player bullet against the boss (Team CS boss overhaul): scores
+	 * destroyed parts and the defeat.
+	 *
+	 * @param bullet Player bullet.
+	 * @return True if the boss took the bullet.
+	 */
+	private boolean manageBossHit(final Bullet bullet) {
+		BossHit hit = this.boss.hit(bullet);
+		if (hit == null)
+			return false;
+		if (!hit.partDestroyed) {
+			if (hit.damaged)
+				SoundManager.getInstance().playSfx(Sound.ENEMY_HIT);
+			return true;
+		}
+		this.score += this.items.scoreFor(hit.points);
+		this.pointsEffect.spawn((int) hit.x, (int) hit.y, hit.points);
+		this.screenShake.trigger();
+		SoundManager.getInstance().playSfx(Sound.ENEMY_EXPLOSION);
+		if (hit.bossDefeated) {
+			this.shipsDestroyed++;
+			showUnlockedAchievement(Core.getAchievementManager()
+					.recordBossDefeated());
+		}
+		showUnlockedAchievement(Core.getAchievementManager()
+				.recordEnemyDefeated());
+		return true;
+	}
+
+	/**
+	 * Enemy bullets, enemy bodies and the boss hitting the player (Team CS
+	 * enemy overhaul). A rammed enemy is destroyed without rewards; a tough
+	 * one only loses one hit point.
 	 */
 	private void manageEnemyCollisions() {
 		if (this.levelFinished)
@@ -1171,6 +1176,11 @@ public class GameScreen extends Screen {
 			}
 		if (this.ship.isDestroyed())
 			return;
+		// Boss lasers, rising attack, body, bombs and drones (Team CS).
+		if (this.boss != null && this.boss.hurts(this.ship)) {
+			hitPlayer();
+			return;
+		}
 		for (Enemy enemy : this.enemyManager) {
 			if (!enemy.isHittable() || !checkCollision(enemy, this.ship)
 					|| !enemy.tryRam())
