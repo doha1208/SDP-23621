@@ -64,7 +64,7 @@ public final class BossBalance {
 		d.put("fortress.sweep.crossfireGap", 0.35);
 		d.put("fortress.sweep.crossfireSpeed", 3.0);
 		d.put("fortress.sweep.stunTime", 2.0);
-		d.put("raider.health", 160.0);
+		d.put("raider.health", 110.0);
 		d.put("raider.defeatPoints", 1500.0);
 		d.put("raider.speed", 1.6);
 		d.put("raider.patrol.time", 4.0);
