@@ -33,6 +33,8 @@ public final class EnemyManager implements Iterable<Enemy> {
 	private final EnemyBalance balance;
 	/** Random source for patterns and shot timing. */
 	private final Random random;
+	/** Stage multipliers applied to every enemy spawned from now on. */
+	private StageModifiers stageModifiers = StageModifiers.NONE;
 	/** Application logger. */
 	private final Logger logger = Core.getLogger();
 
@@ -74,7 +76,7 @@ public final class EnemyManager implements Iterable<Enemy> {
 	public List<Enemy> spawn(final SpawnRequest request, final double playerX,
 			final double playerY) {
 		EnemyType type = request.getType();
-		EnemyStats stats = this.balance.stats(type.getBalanceKey());
+		EnemyStats stats = statsOf(type);
 		List<MovePattern> allowed = type.getPatterns();
 		MovePattern pattern = request.getPattern() != null ? request.getPattern()
 				: allowed.get(this.random.nextInt(allowed.size()));
@@ -206,6 +208,40 @@ public final class EnemyManager implements Iterable<Enemy> {
 			if (enemy.isHittable() && enemy.isOnScreen())
 				count++;
 		return count;
+	}
+
+	/**
+	 * Sets the stage multipliers used for enemies spawned from now on.
+	 *
+	 * @param modifiers Stage multipliers.
+	 */
+	public void setStageModifiers(final StageModifiers modifiers) {
+		this.stageModifiers = modifiers == null ? StageModifiers.NONE : modifiers;
+	}
+
+	/** @return Stage multipliers in use. */
+	public StageModifiers getStageModifiers() {
+		return this.stageModifiers;
+	}
+
+	/**
+	 * @param type Enemy type.
+	 * @return Its balance values with the stage multipliers applied.
+	 */
+	public EnemyStats statsOf(final EnemyType type) {
+		return this.stageModifiers.apply(this.balance.stats(type.getBalanceKey()));
+	}
+
+	/**
+	 * @return Total threat of enemies not yet destroyed, including formation
+	 *         members still waiting to enter.
+	 */
+	public double currentThreat() {
+		double total = 0;
+		for (Enemy enemy : this.enemies)
+			if (!enemy.isDestroyed())
+				total += enemy.getStats().threat;
+		return total;
 	}
 
 	/** @return True when no enemy is left, including waiting or exploding ones. */
