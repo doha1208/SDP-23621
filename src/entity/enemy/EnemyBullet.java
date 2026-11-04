@@ -80,7 +80,7 @@ public final class EnemyBullet extends Entity {
 
 	/**
 	 * Draws the bullet pointing where it flies: a rounded pellet with an
-	 * orange rim and a white core that is brighter toward the front, so it
+	 * electric blue rim and a pale core that leans to the front, so it
 	 * reads as an enemy shot and shows its direction.
 	 *
 	 * @param drawManager Drawing target.
@@ -92,15 +92,17 @@ public final class EnemyBullet extends Entity {
 			dot(drawManager, step, 4, RIM);
 		dot(drawManager, 4, 2, RIM);
 		// Core, leaning to the front.
-		dot(drawManager, -1, 2, getColor());
-		dot(drawManager, 1, 2, getColor());
-		dot(drawManager, 3, 2, getColor());
+		dot(drawManager, -1, 2, CORE);
+		dot(drawManager, 1, 2, CORE);
+		dot(drawManager, 3, 2, CORE);
 	}
 
-	/** Rim color of an enemy pellet. */
-	private static final Color RIM = new Color(255, 120, 60);
+	/** Rim color of an enemy pellet: bright alien blue. */
+	private static final Color RIM = new Color(70, 175, 255);
 	/** Rim color at the tail. */
-	private static final Color RIM_DARK = new Color(190, 60, 30);
+	private static final Color RIM_DARK = new Color(30, 85, 210);
+	/** Bright core of an enemy pellet. */
+	private static final Color CORE = new Color(215, 250, 255);
 
 	/** Fills a square of the given size centered on a point along the flight line. */
 	private void dot(final DrawManager drawManager, final double along,
