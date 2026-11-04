@@ -79,24 +79,36 @@ public final class EnemyBullet extends Entity {
 	}
 
 	/**
-	 * Draws the bullet pointing where it flies: a short shaft with a cross
-	 * bar at its front, like the old sprite but turned.
+	 * Draws the bullet pointing where it flies: a rounded pellet with an
+	 * orange rim and a white core that is brighter toward the front, so it
+	 * reads as an enemy shot and shows its direction.
 	 *
 	 * @param drawManager Drawing target.
 	 */
 	public void draw(final DrawManager drawManager) {
-		double cx = this.x + this.width / 2.0;
-		double cy = this.y + this.height / 2.0;
-		Color color = getColor();
-		for (int step = -4; step <= 4; step += 2)
-			drawManager.fillBox((int) Math.round(cx + this.directionX * step) - 1,
-					(int) Math.round(cy + this.directionY * step) - 1, 2, 2, color);
-		// Cross bar at the front, across the direction of flight.
-		double frontX = cx + this.directionX * 4;
-		double frontY = cy + this.directionY * 4;
-		for (int side = -2; side <= 2; side += 2)
-			drawManager.fillBox((int) Math.round(frontX - this.directionY * side) - 1,
-					(int) Math.round(frontY + this.directionX * side) - 1, 2, 2, color);
+		// Rim: thick in the middle, thin at both ends.
+		dot(drawManager, -4, 2, RIM_DARK);
+		for (int step = -2; step <= 2; step += 2)
+			dot(drawManager, step, 4, RIM);
+		dot(drawManager, 4, 2, RIM);
+		// Core, leaning to the front.
+		dot(drawManager, -1, 2, getColor());
+		dot(drawManager, 1, 2, getColor());
+		dot(drawManager, 3, 2, getColor());
+	}
+
+	/** Rim color of an enemy pellet. */
+	private static final Color RIM = new Color(255, 120, 60);
+	/** Rim color at the tail. */
+	private static final Color RIM_DARK = new Color(190, 60, 30);
+
+	/** Fills a square of the given size centered on a point along the flight line. */
+	private void dot(final DrawManager drawManager, final double along,
+			final int size, final Color color) {
+		double cx = this.x + this.width / 2.0 + this.directionX * along;
+		double cy = this.y + this.height / 2.0 + this.directionY * along;
+		drawManager.fillBox((int) Math.round(cx - size / 2.0),
+				(int) Math.round(cy - size / 2.0), size, size, color);
 	}
 
 	/**
