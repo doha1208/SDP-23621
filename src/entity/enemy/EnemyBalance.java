@@ -66,6 +66,8 @@ public final class EnemyBalance {
 	private final double[] semicircleStartY;
 	/** Semicircle (#4): diameter, fraction of play height. */
 	private final double[] semicircleDiameter;
+	/** Semicircle (#4): how far it reaches into the screen, fraction of width. */
+	private final double[] semicircleReach;
 	/** Gentle diagonal (#5): sideways drift, fraction of screen width. */
 	private final double[] gentleDiagonalDrift;
 	/** Sine wave (#7): sideways swing, fraction of screen width. */
@@ -94,6 +96,8 @@ public final class EnemyBalance {
 				"pattern.semicircle.startY", 0.1, 0.25);
 		this.semicircleDiameter = fractionRange(settings,
 				"pattern.semicircle.diameter", 0.45, 0.6);
+		this.semicircleReach = fractionRange(settings,
+				"pattern.semicircle.reach", 0.45, 0.6);
 		this.gentleDiagonalDrift = fractionRange(settings,
 				"pattern.gentleDiagonal.drift", 0.12, 0.25);
 		this.sineWaveAmplitude = fractionRange(settings,
@@ -177,6 +181,11 @@ public final class EnemyBalance {
 	/** @return Semicircle diameter range, fraction of play height. */
 	public double[] getSemicircleDiameter() {
 		return this.semicircleDiameter.clone();
+	}
+
+	/** @return Semicircle reach range, fraction of screen width. */
+	public double[] getSemicircleReach() {
+		return this.semicircleReach.clone();
 	}
 
 	/** @return Gentle diagonal drift range, fraction of screen width. */

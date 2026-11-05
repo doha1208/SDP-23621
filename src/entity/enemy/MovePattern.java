@@ -75,7 +75,9 @@ public enum MovePattern {
 					ctx.balance.getSemicircleStartY()));
 			double radiusY = ctx.playHeight()
 					* ctx.between(ctx.balance.getSemicircleDiameter()) / 2;
-			double radiusX = Math.min(radiusY, ctx.width * MAX_SEMICIRCLE_REACH);
+			// Half an ellipse: its depth into the screen is set on its own.
+			double radiusX = ctx.width * Math.min(MAX_SEMICIRCLE_REACH,
+					ctx.between(ctx.balance.getSemicircleReach()));
 			double centerY = startY + radiusY;
 
 			EnemyPath.Builder path = new EnemyPath.Builder()
@@ -183,7 +185,7 @@ public enum MovePattern {
 	/** Gap kept from the screen sides when picking a start x. */
 	private static final double EDGE_GAP = 4;
 	/** Widest a semicircle may reach into the screen, fraction of width. */
-	private static final double MAX_SEMICIRCLE_REACH = 0.45;
+	private static final double MAX_SEMICIRCLE_REACH = 0.9;
 	/** Part of a side a charge may start from, avoiding the corners. */
 	private static final double SIDE_SPAN_MIN = 0.05;
 	/** Part of a side a charge may start from, avoiding the corners. */
