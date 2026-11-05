@@ -22,10 +22,10 @@ public enum EnemyType {
 			Color.WHITE, FireStyle.NONE,
 			MovePattern.CURVE, MovePattern.STRAIGHT_DOWN, MovePattern.SIDE_DIAGONAL),
 
-	/** Shoots in the direction it flies. */
+	/** Weaves down and shoots straight down. */
 	SHOOTER("shooter", SpriteType.EnemyShipB1, SpriteType.EnemyShipB2, 12, 8,
-			Color.CYAN, FireStyle.FORWARD,
-			MovePattern.STRAIGHT_DOWN, MovePattern.SEMICIRCLE, MovePattern.GENTLE_DIAGONAL),
+			Color.CYAN, FireStyle.DROP,
+			MovePattern.SINE_WAVE, MovePattern.SEMICIRCLE, MovePattern.GENTLE_DIAGONAL),
 
 	/** Shoots at the player. */
 	BAT("bat", SpriteType.EnemyShipC1, SpriteType.EnemyShipC2, 12, 8,
@@ -51,9 +51,9 @@ public enum EnemyType {
 	/** Elite normal (gold): tougher, and drops slow bullets straight down. */
 	ELITE_NORMAL("eliteNormal", NORMAL, new Color(255, 205, 60), FireStyle.DROP),
 
-	/** Elite shooter (coral): fires a fan of three in the direction it flies. */
+	/** Elite shooter (coral): fires a fan of three straight down. */
 	ELITE_SHOOTER("eliteShooter", SHOOTER, new Color(255, 110, 70),
-			FireStyle.FORWARD_FAN3),
+			FireStyle.DROP_FAN3),
 
 	/** Elite bat (hot pink): fires bursts of three quick shots at the player. */
 	ELITE_BAT("eliteBat", BAT, new Color(255, 80, 190), FireStyle.AIMED_BURST3),

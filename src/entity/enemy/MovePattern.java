@@ -1,7 +1,7 @@
 package entity.enemy;
 
 /**
- * The six enemy movement patterns. Each builds one random route when a
+ * The seven enemy movement patterns. Each builds one random route when a
  * formation spawns; every member of the formation then flies that route.
  * Routes start and end off screen, so enemies fly in and out of view.
  */
@@ -142,7 +142,41 @@ public enum MovePattern {
 			return EnemyPath.line(startX, startY,
 					startX + dx / length * travel, startY + dy / length * travel);
 		}
+	},
+
+	/**
+	 * #7: falls from the top weaving left and right like a sine wave, around
+	 * a random x picked so the whole wave stays on screen.
+	 */
+	SINE_WAVE {
+		@Override
+		public EnemyPath create(final SpawnContext ctx, final int w, final int h) {
+			double amplitude = ctx.width * ctx.between(
+					ctx.balance.getSineWaveAmplitude());
+			double wavelength = Math.max(1, ctx.playHeight() * ctx.between(
+					ctx.balance.getSineWaveWavelength()));
+			// Keep the widest swing inside the screen.
+			double room = (ctx.width - w) / 2.0 - EDGE_GAP;
+			amplitude = Math.max(0, Math.min(amplitude, room));
+			double low = w / 2.0 + EDGE_GAP + amplitude;
+			double high = ctx.width - w / 2.0 - EDGE_GAP - amplitude;
+			double centerX = low < high ? ctx.between(low, high) : ctx.width / 2.0;
+			int side = ctx.random.nextBoolean() ? 1 : -1;
+			double startY = ctx.top - h / 2.0;
+			double endY = ctx.height + h;
+
+			EnemyPath.Builder path = new EnemyPath.Builder();
+			for (double y = startY; y < endY; y += SINE_STEP)
+				path.to(centerX + side * amplitude
+						* Math.sin(2 * Math.PI * (y - startY) / wavelength), y);
+			return path.to(centerX + side * amplitude
+					* Math.sin(2 * Math.PI * (endY - startY) / wavelength), endY)
+					.build();
+		}
 	};
+
+	/** Pixels down between the points of a sine wave route. */
+	private static final double SINE_STEP = 4;
 
 	/** Segments used to draw a quarter of a curve. */
 	private static final int CURVE_STEPS = 24;

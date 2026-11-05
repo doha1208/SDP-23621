@@ -55,13 +55,12 @@ public enum FireStyle {
 		}
 	},
 
-	/** Three bullets in a fan around the direction the enemy flies. */
-	FORWARD_FAN3 {
+	/** Three bullets in a fan around straight down. */
+	DROP_FAN3 {
 		@Override
 		public void fire(final Enemy shooter, final double targetX,
 				final double targetY, final List<EnemyBullet> out) {
-			fan(shooter, Math.atan2(shooter.getHeadingY(), shooter.getHeadingX()),
-					3, out);
+			fan(shooter, Math.PI / 2, 3, out);
 		}
 	},
 

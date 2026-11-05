@@ -68,6 +68,10 @@ public final class EnemyBalance {
 	private final double[] semicircleDiameter;
 	/** Gentle diagonal (#5): sideways drift, fraction of screen width. */
 	private final double[] gentleDiagonalDrift;
+	/** Sine wave (#7): sideways swing, fraction of screen width. */
+	private final double[] sineWaveAmplitude;
+	/** Sine wave (#7): fall per full left-right swing, fraction of play height. */
+	private final double[] sineWaveWavelength;
 
 	/**
 	 * Builds the balance from loaded settings.
@@ -92,6 +96,10 @@ public final class EnemyBalance {
 				"pattern.semicircle.diameter", 0.45, 0.6);
 		this.gentleDiagonalDrift = fractionRange(settings,
 				"pattern.gentleDiagonal.drift", 0.12, 0.25);
+		this.sineWaveAmplitude = fractionRange(settings,
+				"pattern.sineWave.amplitude", 0.12, 0.2);
+		this.sineWaveWavelength = positiveRange(settings,
+				"pattern.sineWave.wavelength", 0.35, 0.5);
 	}
 
 	/** @return The built-in default values. */
@@ -174,6 +182,16 @@ public final class EnemyBalance {
 	/** @return Gentle diagonal drift range, fraction of screen width. */
 	public double[] getGentleDiagonalDrift() {
 		return this.gentleDiagonalDrift.clone();
+	}
+
+	/** @return Sine wave swing range, fraction of screen width. */
+	public double[] getSineWaveAmplitude() {
+		return this.sineWaveAmplitude.clone();
+	}
+
+	/** @return Sine wave fall per full swing, fraction of play height. */
+	public double[] getSineWaveWavelength() {
+		return this.sineWaveWavelength.clone();
 	}
 
 	private static EnemyStats readStats(final Properties settings,
