@@ -44,7 +44,84 @@ public enum FireStyle {
 				shoot(shooter, Math.cos(angle + i * spread),
 						Math.sin(angle + i * spread), out);
 		}
+	},
+
+	/** One bullet straight down, whichever way the enemy flies. */
+	DROP {
+		@Override
+		public void fire(final Enemy shooter, final double targetX,
+				final double targetY, final List<EnemyBullet> out) {
+			shoot(shooter, 0, 1, out);
+		}
+	},
+
+	/** Three bullets in a fan around the direction the enemy flies. */
+	FORWARD_FAN3 {
+		@Override
+		public void fire(final Enemy shooter, final double targetX,
+				final double targetY, final List<EnemyBullet> out) {
+			fan(shooter, Math.atan2(shooter.getHeadingY(), shooter.getHeadingX()),
+					3, out);
+		}
+	},
+
+	/** A quick burst of three bullets at the player, each one re-aimed. */
+	AIMED_BURST3 {
+		@Override
+		public void fire(final Enemy shooter, final double targetX,
+				final double targetY, final List<EnemyBullet> out) {
+			AIMED.fire(shooter, targetX, targetY, out);
+		}
+
+		@Override
+		public int getVolley() {
+			return 3;
+		}
+	},
+
+	/**
+	 * A ring of bullets all around; the gap between them is the fan angle
+	 * (45 degrees gives eight). One bullet points at the player.
+	 */
+	RING {
+		@Override
+		public void fire(final Enemy shooter, final double targetX,
+				final double targetY, final List<EnemyBullet> out) {
+			double spread = Math.max(10, shooter.getStats().spreadDegrees);
+			int count = (int) Math.round(360 / spread);
+			double start = angleTo(shooter, targetX, targetY);
+			for (int i = 0; i < count; i++) {
+				double angle = start + 2 * Math.PI * i / count;
+				shoot(shooter, Math.cos(angle), Math.sin(angle), out);
+			}
+		}
+	},
+
+	/** Five bullets in a fan, the middle one at the player. */
+	AIMED_FAN5 {
+		@Override
+		public void fire(final Enemy shooter, final double targetX,
+				final double targetY, final List<EnemyBullet> out) {
+			fan(shooter, angleTo(shooter, targetX, targetY), 5, out);
+		}
 	};
+
+	/**
+	 * @return Shots fired in a row each time the enemy fires, a few frames
+	 *         apart; 1 for a single shot.
+	 */
+	public int getVolley() {
+		return 1;
+	}
+
+	/** Adds an odd number of bullets fanned around the given angle. */
+	private static void fan(final Enemy shooter, final double angle,
+			final int count, final List<EnemyBullet> out) {
+		double spread = Math.toRadians(shooter.getStats().spreadDegrees);
+		for (int i = -(count / 2); i <= count / 2; i++)
+			shoot(shooter, Math.cos(angle + i * spread),
+					Math.sin(angle + i * spread), out);
+	}
 
 	/**
 	 * Fires this style's bullets.

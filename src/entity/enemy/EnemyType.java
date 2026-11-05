@@ -40,7 +40,29 @@ public enum EnemyType {
 	/** Slow, big and tough; fires a fan of three at the player. */
 	TANK("tank", SpriteType.EnemyShipB1, SpriteType.EnemyShipB2, 12, 8,
 			new Color(120, 220, 120), FireStyle.AIMED_FAN3,
-			MovePattern.STRAIGHT_DOWN, MovePattern.SIDE_DIAGONAL);
+			MovePattern.STRAIGHT_DOWN, MovePattern.SIDE_DIAGONAL),
+
+	/*
+	 * Elites: late-game versions of the types above. Same sprite and routes,
+	 * drawn bigger in a warm colour of their own, with more health and a
+	 * stronger attack.
+	 */
+
+	/** Elite normal (gold): tougher, and drops slow bullets straight down. */
+	ELITE_NORMAL("eliteNormal", NORMAL, new Color(255, 205, 60), FireStyle.DROP),
+
+	/** Elite shooter (coral): fires a fan of three in the direction it flies. */
+	ELITE_SHOOTER("eliteShooter", SHOOTER, new Color(255, 110, 70),
+			FireStyle.FORWARD_FAN3),
+
+	/** Elite bat (hot pink): fires bursts of three quick shots at the player. */
+	ELITE_BAT("eliteBat", BAT, new Color(255, 80, 190), FireStyle.AIMED_BURST3),
+
+	/** Elite assassin (red): tougher, and sheds rings of bullets as it charges. */
+	ELITE_ASSASSIN("eliteAssassin", ASSASSIN, new Color(255, 45, 45), FireStyle.RING),
+
+	/** Elite tank (amber): very tough; fires a fan of five at the player. */
+	ELITE_TANK("eliteTank", TANK, new Color(255, 170, 40), FireStyle.AIMED_FAN5);
 
 	/** Key prefix in the balance file. */
 	private final String balanceKey;
@@ -58,6 +80,8 @@ public enum EnemyType {
 	private final FireStyle fireStyle;
 	/** Movement patterns it may use. */
 	private final List<MovePattern> patterns;
+	/** The regular type an elite is based on; null for regular types. */
+	private final EnemyType base;
 
 	EnemyType(final String balanceKey, final SpriteType spriteA,
 			final SpriteType spriteB, final int spriteColumns,
@@ -71,6 +95,31 @@ public enum EnemyType {
 		this.color = color;
 		this.fireStyle = fireStyle;
 		this.patterns = Collections.unmodifiableList(Arrays.asList(patterns));
+		this.base = null;
+	}
+
+	/** An elite: the base type's sprite and routes, its own colour and attack. */
+	EnemyType(final String balanceKey, final EnemyType base, final Color color,
+			final FireStyle fireStyle) {
+		this.balanceKey = balanceKey;
+		this.spriteA = base.spriteA;
+		this.spriteB = base.spriteB;
+		this.spriteColumns = base.spriteColumns;
+		this.spriteRows = base.spriteRows;
+		this.color = color;
+		this.fireStyle = fireStyle;
+		this.patterns = base.patterns;
+		this.base = base;
+	}
+
+	/** @return True for the late-game elite versions. */
+	public boolean isElite() {
+		return this.base != null;
+	}
+
+	/** @return The regular type an elite is based on, or this type itself. */
+	public EnemyType getBase() {
+		return this.base == null ? this : this.base;
 	}
 
 	/** @return Key prefix in the balance file, such as "tank". */

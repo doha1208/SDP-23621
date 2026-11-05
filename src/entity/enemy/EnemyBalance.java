@@ -43,6 +43,12 @@ public final class EnemyBalance {
 		defaults.put("bat", new EnemyStats(1, 30, 1.8, 3, 120, 3.5, 2, 0, 1.0));
 		defaults.put("assassin", new EnemyStats(1, 40, 5.0, 1, 60, 4.0, 2, 0, 2.0));
 		defaults.put("tank", new EnemyStats(8, 100, 0.6, 1, 150, 3.0, 4, 15, 4.0));
+		// Elites: late-game versions of the types above.
+		defaults.put("eliteNormal", new EnemyStats(3, 40, 2.2, 4, 150, 2.5, 3, 0, 0.6));
+		defaults.put("eliteShooter", new EnemyStats(3, 70, 1.6, 3, 80, 4.0, 3, 15, 1.2));
+		defaults.put("eliteBat", new EnemyStats(4, 100, 1.9, 2, 130, 3.8, 3, 0, 2.5));
+		defaults.put("eliteAssassin", new EnemyStats(3, 150, 5.5, 1, 50, 2.5, 3, 45, 4.0));
+		defaults.put("eliteTank", new EnemyStats(20, 350, 0.6, 1, 130, 3.0, 5, 12, 8.0));
 		DEFAULT_STATS = Collections.unmodifiableMap(defaults);
 	}
 
