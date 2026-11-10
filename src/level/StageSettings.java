@@ -131,6 +131,24 @@ public final class StageSettings {
 		read.rejectUnknownKeys();
 	}
 
+	/** Copy the stage balance with a different combat duration. */
+	public StageSettings withDuration(final double seconds) {
+		if (!Double.isFinite(seconds) || seconds <= 0)
+			throw new IllegalArgumentException("duration must be finite and positive");
+		return new StageSettings(this, seconds);
+	}
+
+	private StageSettings(final StageSettings source, final double seconds) {
+		this.duration = seconds;
+		this.startDelay = source.startDelay;
+		this.pressureStart = source.pressureStart;
+		this.pressureEnd = source.pressureEnd;
+		this.spawnGap = source.spawnGap;
+		this.spawnGapRandom = source.spawnGapRandom;
+		this.weights = source.weights;
+		this.modifiers = source.modifiers;
+	}
+
 	/** @return Seconds enemies keep spawning. */
 	public double getDuration() {
 		return this.duration;

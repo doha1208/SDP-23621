@@ -914,6 +914,15 @@ public final class DrawManager {
 		backBufferGraphics.setColor(Color.GREEN);
 		backBufferGraphics.drawString(valueString, valueX, LEVEL_INDICATOR_Y);
 	}
+
+	/** Timed-run progress replaces the legacy stage number at the same position. */
+	public void drawRunProgress(final Screen screen, final String text) {
+		backBufferGraphics.setFont(fontRegular);
+		backBufferGraphics.setColor(Color.GREEN);
+		backBufferGraphics.drawString(text,
+				(screen.getWidth() - fontRegularMetrics.stringWidth(text)) / 2,
+				LEVEL_INDICATOR_Y);
+	}
 	/** Y offset of the diamond counter below the score line. */
 	private static final int DIAMONDS_Y_OFFSET = 11;
 	/** Size, in pixels, of the diamond icon drawn next to the count. */
@@ -1489,7 +1498,13 @@ public final class DrawManager {
 	 */
 	public void drawGameOver(final Screen screen, final boolean acceptsInput,
 							 final boolean isNewRecord) {
-		String gameOverString = "Game Over";
+		drawGameOver(screen, acceptsInput, isNewRecord, false);
+	}
+
+	/** Result title distinguishes a timed-run victory from a loss. */
+	public void drawGameOver(final Screen screen, final boolean acceptsInput,
+			final boolean isNewRecord, final boolean cleared) {
+		String gameOverString = cleared ? "Run Clear" : "Game Over";
 		String continueOrExitString =
 				"Press Space to play again, Escape to exit";
 

@@ -48,6 +48,7 @@ import entity.enemy.EnemyBullet;
 import entity.enemy.EnemyManager;
 import entity.enemy.LevelDirector;
 import level.LevelDirectors;
+import level.TimedRun;
 import entity.Particle;
 import entity.Ship;
 import item.ItemSystem;
@@ -307,9 +308,13 @@ public class GameScreen extends Screen {
 	private final int initialShipsDestroyed;
 	/** Pending diamonds the level started with, restored by "Restart". */
 	private final int initialPendingDiamonds;
+	private final int initialLevelsCompletedRun;
 
 	/** Boss of stages 5 and 10 (Team CS boss overhaul); null on normal stages. */
 	private BossFight boss;
+	/** Default menu flow; the original constructor remains for stage diagnostics. */
+	private final boolean timedRunMode;
+	private TimedRun timedRun;
 
 	/**
 	 * Constructor, establishes the properties of the screen.
@@ -330,7 +335,15 @@ public class GameScreen extends Screen {
 	public GameScreen(final GameState gameState,
 					  final GameSettings gameSettings, final boolean bonusLife,
 					  final int width, final int height, final int fps) {
+		this(gameState, gameSettings, bonusLife, width, height, fps, false);
+	}
+
+	/** Creates either the normal timed run or an explicit legacy stage diagnostic. */
+	public GameScreen(final GameState gameState,
+			final GameSettings gameSettings, final boolean bonusLife,
+			final int width, final int height, final int fps, final boolean timed) {
 		super(width, height, fps);
+		this.timedRunMode = timed;
 
 		this.gameSettings = gameSettings;
 		this.bonusLife = bonusLife;
@@ -355,6 +368,7 @@ public class GameScreen extends Screen {
 		this.initialBulletsShot = this.bulletsShot;
 		this.initialShipsDestroyed = this.shipsDestroyed;
 		this.initialPendingDiamonds = this.pendingDiamonds;
+		this.initialLevelsCompletedRun = this.levelsCompletedRun;
 	}
 
 	/**
@@ -362,6 +376,15 @@ public class GameScreen extends Screen {
 	 */
 	public final void initialize() {
 		super.initialize();
+		this.timedRun = this.timedRunMode ? new TimedRun() : null;
+		this.gameOverActive = false;
+		this.showGameOverText = false;
+		this.shrinkingEnemies = null;
+		this.gameOverLastEnemyGone = 0;
+		this.gameOverBannerStart = 0;
+		this.enemyShipSpecial = null;
+		this.particles.clear();
+		this.itemSlotKeysHeld = new boolean[9];
 		SoundManager.getInstance().playBgm(Sound.BGM_GAME);
 
 		// Initialize the player in both boss and normal stages.
@@ -371,13 +394,14 @@ public class GameScreen extends Screen {
 		// Distinct mid-boss and final boss encounters.
 		this.enemyManager = new EnemyManager(this.width, this.height,
 				SEPARATION_LINE_HEIGHT);
-		if (this.level == 5 || this.level == 10) {
+		if (!this.timedRunMode && (this.level == 5 || this.level == 10)) {
 			this.boss = BossRoster.create(this.level, this.width, this.height,
 					SEPARATION_LINE_HEIGHT);
 			this.levelDirector = null;
 		} else {
 			this.boss = null;
-			this.levelDirector = LevelDirectors.forLevel(this.level);
+			this.levelDirector = this.timedRunMode ? LevelDirectors.forTimedRun()
+					: LevelDirectors.forLevel(this.level);
 		}
 		// Skin chosen in Customize (GoG - Currency System).
 		this.skin = PurchaseManager.getInstance().getSelectedSkin();
@@ -469,7 +493,8 @@ public class GameScreen extends Screen {
 		this.items.endLevel(); // Item System (Team CS)
 
 
-		this.score += LIFE_SCORE * (this.lives - 1);
+		if (!didQuit() && this.lives > 0)
+			this.score += LIFE_SCORE * (this.lives - 1);
 		this.logger.info("Screen cleared with a score of " + this.score);
 
 		return this.returnCode;
@@ -479,6 +504,12 @@ public class GameScreen extends Screen {
 	 * Updates the elements on screen and checks for events.
 	 */
 	protected final void update() {
+		updateState();
+		draw();
+	}
+
+	/** Gameplay update kept separate from rendering for headless regression checks. */
+	private void updateState() {
 		super.update();
 		// Item System (Team CS): item bonuses on top of the base fire rate,
 		// bullet speed and movement speed (stacks and the boost item).
@@ -489,7 +520,7 @@ public class GameScreen extends Screen {
 		// Animated skins (GoG); plain skins return the same colour.
 		this.ship.setSkinColor(this.skin.colorAt(System.currentTimeMillis()));
 
-		if (inputManager.isKeyDown(KeyEvent.VK_P)
+		if (!this.levelFinished && inputManager.isKeyDown(KeyEvent.VK_P)
 				&& this.pauseKeyCooldown.checkFinished()) {
 			if (this.paused)
 				resumeGameplay();
@@ -506,8 +537,10 @@ public class GameScreen extends Screen {
 		}
 
 		if (this.paused) {
+			this.items.pauseClock();
+			if (this.timedRun != null)
+				this.timedRun.update(System.nanoTime(), false, this.lives, false);
 			updatePauseMenu();
-			draw();
 			return;
 		}
 
@@ -548,6 +581,7 @@ public class GameScreen extends Screen {
 
 			}
 			if (this.enemyShipSpecial == null
+					&& (!this.timedRunMode || this.boss == null)
 					&& this.enemyShipSpecialCooldown.checkFinished()) {
 				this.enemyShipSpecial = new EnemyShip();
 				this.enemyShipSpecialCooldown.reset();
@@ -576,9 +610,10 @@ public class GameScreen extends Screen {
 		}
 
 		// Item System (Team CS): drops fall/expire, pickups, effect timers.
-		this.items.update(this.ship, this.inputDelay.checkFinished()
-				&& !this.levelFinished && this.lives > 0
-				&& !this.ship.isDestroyed());
+		if (this.inputDelay.checkFinished() && !this.levelFinished && this.lives > 0)
+			this.items.update(this.ship, !this.ship.isDestroyed());
+		else
+			this.items.pauseClock();
 		manageCollisions();
 		showScoreBoostPopups(); // Item System (Team CS)
 		cleanBullets();
@@ -586,10 +621,12 @@ public class GameScreen extends Screen {
 		updateParticles(); // AUTHORED BY: VFX TEAM (Effection)
 		this.lightningChain.update();
 		updateCoins();
-		this.pendingDiamonds += this.meteors.update(this.ship, this.lives > 0); // VFX TEAM (Effection): updates the meteor and its diamonds, returns the diamonds to be added to pending
+		this.pendingDiamonds += this.meteors.update(this.ship,
+				!this.levelFinished && this.lives > 0 && this.inputDelay.checkFinished());
 		handleItemEvents();
 		updateAchievementPopup();
-		draw();
+		if (this.timedRun != null && !this.levelFinished)
+			updateRunProgress(System.nanoTime());
 
 		// Game over sequence, only when the player runs out of lives. AUTHORED BY: VFX TEAM (Effection)
 		if (this.lives == 0 && !this.levelFinished)
@@ -599,13 +636,19 @@ public class GameScreen extends Screen {
 			return;
 		}
 
-		boolean isCleared = this.boss != null
-				? this.boss.isFinished()
+		boolean isCleared = this.timedRun != null
+				? this.timedRun.getPhase() == TimedRun.Phase.WON
+				: this.boss != null ? this.boss.isFinished()
 				: this.levelDirector.isFinished() && this.enemyManager.isEmpty();
 		if ((isCleared || this.lives == 0)
 				&& !this.levelFinished) {
 			this.levelFinished = true;
 			this.screenFinishedCooldown.reset();
+			this.enemyManager.clearBullets();
+			BulletPool.recycle(this.bullets);
+			this.bullets.clear();
+			if (this.boss != null)
+				this.boss.stop();
 
 			// Level cleared alive: level N is worth N diamonds, kept pending
 			// until cashed out (see engine.DiamondManager), and coins still
@@ -630,7 +673,7 @@ public class GameScreen extends Screen {
 								true));
 
 				// Last level cleared alive: the game is beaten.
-				if (this.level == Core.getNumLevels())
+				if (this.timedRunMode || this.level == Core.getNumLevels())
 					showUnlockedAchievement(Core.getAchievementManager()
 							.recordGameWon(Core.getSelectedShipId()));
 			}
@@ -641,6 +684,33 @@ public class GameScreen extends Screen {
 				&& this.achievementPopupQueue.isEmpty())
 			this.isRunning = false;
 
+	}
+
+	/** Resolve the timer after collisions, so a fatal hit wins a boundary tie. */
+	private void updateRunProgress(final long now) {
+		TimedRun.Phase before = this.timedRun.getPhase();
+		this.timedRun.update(now, this.inputDelay.checkFinished(), this.lives,
+				this.boss != null && this.boss.isDefeated());
+		if (before == TimedRun.Phase.COMBAT
+				&& this.timedRun.getPhase() == TimedRun.Phase.BOSS) {
+			// Remove ordinary enemies/hazards without treating them as kills.
+			this.enemyManager = new EnemyManager(this.width, this.height,
+					SEPARATION_LINE_HEIGHT);
+			this.enemyShipSpecial = null;
+			BulletPool.recycle(this.bullets);
+			this.bullets.clear();
+			this.pendingDiamonds += this.meteors.collectRemaining();
+			this.meteors.clear();
+			this.boss = BossRoster.create(5, this.width, this.height,
+					SEPARATION_LINE_HEIGHT);
+			this.logger.info("120 active seconds complete; starting boss: "
+					+ this.boss.getName());
+		}
+	}
+
+	/** True only for the pause menu's abandon action, not a death or clear. */
+	public boolean didQuit() {
+		return this.timedRun != null && this.timedRun.getPhase() == TimedRun.Phase.QUIT;
 	}
 
 	/**
@@ -824,6 +894,15 @@ public class GameScreen extends Screen {
 				restartLevel();
 				break;
 			case QUIT:
+				if (this.timedRun != null) {
+					this.timedRun.quit();
+					this.pendingDiamonds = 0;
+					this.levelFinished = true;
+					this.isRunning = false;
+					this.paused = false;
+					SoundManager.getInstance().stopBgm();
+					break;
+				}
 				// No dedicated "abandon" path exists in the screen flow,
 				// but ending the run the same way running out of lives
 				// does takes us straight to the existing score screen,
@@ -838,6 +917,13 @@ public class GameScreen extends Screen {
 
 	/** Resumes the level without consuming the boss's warning time. */
 	private void resumeGameplay() {
+		long duration = System.currentTimeMillis() - this.pauseStartedAt;
+		this.inputDelay.delayBy(duration);
+		this.gameStartTime += duration;
+		this.enemyShipSpecialCooldown.delayBy(duration);
+		this.items.pauseClock();
+		if (this.timedRun != null)
+			this.timedRun.update(System.nanoTime(), false, this.lives, false);
 		this.paused = false;
 		this.pauseStartedAt = 0;
 	}
@@ -848,11 +934,18 @@ public class GameScreen extends Screen {
 	 * level began, and every on-screen element is rebuilt from scratch.
 	 */
 	private void restartLevel() {
+		this.items.endLevel();
+		GameEvents.unsubscribe(GameEvents.Type.PLAYER_HIT, this.damageDim);
+		GameEvents.unsubscribe(GameEvents.Type.PLAYER_HIT, this.lightningChain);
+		BulletPool.recycle(this.bullets);
+		if (this.timedRunMode)
+			BossRoster.newRun();
 		this.score = this.initialScore;
 		this.lives = this.initialLives;
 		this.bulletsShot = this.initialBulletsShot;
 		this.shipsDestroyed = this.initialShipsDestroyed;
 		this.pendingDiamonds = this.initialPendingDiamonds;
+		this.levelsCompletedRun = this.initialLevelsCompletedRun;
 		refundCoinsCollectedThisLevel();
 		this.tookDamage = false; // a restarted level can still be flawless
 		this.levelFinished = false;
@@ -939,7 +1032,10 @@ public class GameScreen extends Screen {
 		// Interface.
 		drawManager.drawScore(this, this.score);
 		drawManager.drawLives(this, this.lives);
-		drawManager.drawLevel(this, this.level);
+		if (this.timedRun != null)
+			drawManager.drawRunProgress(this, this.timedRun.label());
+		else
+			drawManager.drawLevel(this, this.level);
 		// Explicit Y (36, not the 25 default): the level indicator now
 		// sits centred at y=14, and the coin icon is tall enough that at
 		// y=25 it climbs into the level text above it. Dropping it to its
@@ -1055,6 +1151,8 @@ public class GameScreen extends Screen {
 	 * Manages collisions between bullets and ships.
 	 */
 	private void manageCollisions() {
+		if (this.levelFinished || this.lives <= 0 || !this.inputDelay.checkFinished())
+			return;
 		Set<Bullet> recyclable = new HashSet<Bullet>();
 		for (Bullet bullet : this.bullets) {
 			if (bullet.getSpeed() > 0) {
@@ -1197,6 +1295,8 @@ public class GameScreen extends Screen {
 	 * ship is already exploding or a shield blocks it.
 	 */
 	private void hitPlayer() {
+		if (this.levelFinished || this.lives <= 0)
+			return;
 		if (!this.ship.isDestroyed()
 				&& !this.items.tryBlockHit()) { // Shield item (Team CS)
 			this.ship.destroy();
