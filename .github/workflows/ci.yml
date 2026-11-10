@@ -25,6 +25,12 @@ jobs:
       - name: Check resources referenced by code exist
         run: test -f res/graphics && test -f res/scores
 
+      - name: Timed run regression (headless and muted)
+        run: |
+          mkdir -p tmp/timed-run-test/bin
+          javac -Xlint:all -d tmp/timed-run-test/bin $(find src -name '*.java') tests/TimedRunTest.java
+          java -Djava.awt.headless=true -cp tmp/timed-run-test/bin:res TimedRunTest
+
   # Runs the game for a few seconds on a virtual display and fails if it
   # throws. Compiling is not enough: a missing font made the game die on the
   # first frame while the window stayed open, which looked like a white screen
