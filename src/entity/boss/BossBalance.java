@@ -40,7 +40,6 @@ public final class BossBalance {
 		Map<String, Double> d = new LinkedHashMap<String, Double>();
 		d.put("fortress.sideCoreHealth", 40.0);
 		d.put("fortress.centerCoreHealth", 60.0);
-		d.put("fortress.corePoints", 300.0);
 		d.put("fortress.defeatPoints", 1000.0);
 		d.put("fortress.sway", 6.0);
 		d.put("fortress.restTime", 1.2);
