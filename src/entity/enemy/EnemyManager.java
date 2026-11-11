@@ -1,9 +1,12 @@
 package entity.enemy;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import engine.Core;
@@ -23,6 +26,11 @@ public final class EnemyManager implements Iterable<Enemy> {
 	private final List<Enemy> enemies = new ArrayList<Enemy>();
 	/** Enemy bullets in flight. */
 	private final List<EnemyBullet> bullets = new ArrayList<EnemyBullet>();
+	/** Enemies held by the current freeze: the ones present when it began. */
+	private final Set<Enemy> frozenEnemies =
+			Collections.newSetFromMap(new IdentityHashMap<Enemy, Boolean>());
+	/** Whether the freeze was active last frame. */
+	private boolean wasFrozen;
 	/** Screen width. */
 	private final int width;
 	/** Screen height. */
@@ -104,14 +112,21 @@ public final class EnemyManager implements Iterable<Enemy> {
 	/**
 	 * Moves every enemy and lets them shoot. Call only while gameplay runs.
 	 *
-	 * @param frozen  True while the freeze item holds enemies in place.
+	 * @param frozen  True while the freeze item is active. It holds only the
+	 *                enemies that were on the field when it began; enemies
+	 *                that spawn during the freeze move normally.
 	 * @param playerX Player center x.
 	 * @param playerY Player center y.
 	 */
 	public void updateEnemies(final boolean frozen, final double playerX,
 			final double playerY) {
+		if (frozen && !this.wasFrozen)
+			this.frozenEnemies.addAll(this.enemies);
+		else if (!frozen)
+			this.frozenEnemies.clear();
+		this.wasFrozen = frozen;
 		for (Enemy enemy : this.enemies) {
-			enemy.move(frozen);
+			enemy.move(this.frozenEnemies.contains(enemy));
 			enemy.tryFire(playerX, playerY, this.bullets);
 		}
 	}
