@@ -86,6 +86,7 @@ public final class BossBalance {
 		d.put("raider.drones.chaseTime", 2.5);
 		d.put("raider.drones.health", 1.0);
 		d.put("raider.drones.points", 20.0);
+		d.put("common.hitGrace", 2.0);
 		for (int level : new int[] {5, 10}) {
 			double multiplier = 1 + 0.05 * (level - 1);
 			d.put("stage" + level + ".speed", multiplier);
