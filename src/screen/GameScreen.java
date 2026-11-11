@@ -169,7 +169,7 @@ public class GameScreen extends Screen {
 	private GameSettings gameSettings;
 	/** Current difficulty level number. */
 	private int level;
-	/** Enemies and enemy bullets of this level (Team CS enemy overhaul). */
+	/** Enemies and enemy bullets of this level (Team Entities enemy overhaul). */
 	private EnemyManager enemyManager;
 	/** Decides when enemies spawn; normal stages only. */
 	private LevelDirector levelDirector;
@@ -1163,7 +1163,7 @@ public class GameScreen extends Screen {
 	}
 
 	/**
-	 * Enemy bullets and enemy bodies hitting the player (Team CS enemy
+	 * Enemy bullets and enemy bodies hitting the player (Team Entities enemy
 	 * overhaul). A rammed enemy is destroyed without rewards; a tough one
 	 * only loses one hit point.
 	 */
