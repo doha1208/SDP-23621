@@ -37,7 +37,6 @@ import entity.Bullet;
 import entity.BulletPool;
 import entity.Coin;
 import entity.CoinPool;
-import entity.EnemyShip;
 import entity.Boss;
 import entity.MidBoss;
 import entity.FinalBoss;
@@ -65,12 +64,6 @@ public class GameScreen extends Screen {
 	private static final int INPUT_DELAY = 6000;
 	/** Bonus score for each life remaining at the end of the level. */
 	private static final int LIFE_SCORE = 100;
-	/** Minimum time between bonus ship's appearances. */
-	private static final int BONUS_SHIP_INTERVAL = 20000;
-	/** Maximum variance in the time between bonus ship's appearances. */
-	private static final int BONUS_SHIP_VARIANCE = 10000;
-	/** Time until bonus ship explosion disappears. */
-	private static final int BONUS_SHIP_EXPLOSION = 500;
 	/** Time from finishing the level to screen change. */
 	private static final int SCREEN_CHANGE_INTERVAL = 1500;
 	// Game over animation timings. AUTHORED BY: VFX TEAM (Effection)
@@ -112,8 +105,6 @@ public class GameScreen extends Screen {
 	private static final int LOW_HEALTH_EFFECT_DURATION = 5000;
 	/** Coins awarded when a regular enemy's drop chance succeeds. */
 	private static final int COIN_VALUE = 1;
-	/** Coins guaranteed when the special bonus ship is destroyed. */
-	private static final int BONUS_COIN_VALUE = 5;
 	/** Delay before the extra score boost popup follows the normal one (ms, Team CS). */
 	private static final int SCORE_BOOST_POPUP_DELAY = 250;
 	/** The extra score boost popup starts this much lower, so the two can be told apart (px, Team CS). */
@@ -177,12 +168,6 @@ public class GameScreen extends Screen {
 	private Ship ship;
 	/** Warp In effect, null if not bought. AUTHORED BY: VFX TEAM (Effection) */
 	private engine.WarpIn warpIn;
-	/** Bonus enemy ship that appears sometimes. */
-	private EnemyShip enemyShipSpecial;
-	/** Minimum time between bonus ship appearances. */
-	private Cooldown enemyShipSpecialCooldown;
-	/** Time until bonus ship explosion disappears. */
-	private Cooldown enemyShipSpecialExplosionCooldown;
 	/** Time from finishing the level to screen change. */
 	private Cooldown screenFinishedCooldown;
 
@@ -384,12 +369,6 @@ public class GameScreen extends Screen {
 		shop.ShapeSkin shape = PurchaseManager.getInstance()
 				.getSelectedShape(this.ship.getType());
 		this.ship.setShapeSprite(shape == null ? null : shape.getSprite());
-		// Appears each 10-30 seconds.
-		this.enemyShipSpecialCooldown = Core.getVariableCooldown(
-				BONUS_SHIP_INTERVAL, BONUS_SHIP_VARIANCE);
-		this.enemyShipSpecialCooldown.reset();
-		this.enemyShipSpecialExplosionCooldown = Core
-				.getCooldown(BONUS_SHIP_EXPLOSION);
 		this.screenFinishedCooldown = Core.getCooldown(SCREEN_CHANGE_INTERVAL);
 		this.lowHealthTimer = Core.getCooldown(LOW_HEALTH_EFFECT_DURATION);
 		this.prevLives = this.lives;
@@ -538,25 +517,6 @@ public class GameScreen extends Screen {
 				useItemSlots(); // Item System (Team CS)
 			}
 
-			if (this.enemyShipSpecial != null) {
-				if (!this.enemyShipSpecial.isDestroyed())
-					this.enemyShipSpecial.move(this.items.enemiesFrozen() ? 0 : 2, 0);
-				else if (this.enemyShipSpecialExplosionCooldown.checkFinished())
-					this.enemyShipSpecial = null;
-
-			}
-			if (this.enemyShipSpecial == null
-					&& this.enemyShipSpecialCooldown.checkFinished()) {
-				this.enemyShipSpecial = new EnemyShip();
-				this.enemyShipSpecialCooldown.reset();
-				this.logger.info("A special ship appears");
-			}
-			if (this.enemyShipSpecial != null
-					&& this.enemyShipSpecial.getPositionX() > this.width) {
-				this.enemyShipSpecial = null;
-				this.logger.info("The special ship has escaped");
-			}
-
 			this.ship.update();
 			if (this.midBoss != null) {
 				if (!this.items.enemiesFrozen()) {
@@ -695,13 +655,6 @@ public class GameScreen extends Screen {
 			return;
 		}
 
-		// Clears a bonus ship explosion (shot just before game over) after
-		// its usual time, as gameplay does, since that update no longer runs.
-		if (this.enemyShipSpecial != null
-				&& this.enemyShipSpecial.isDestroyed()
-				&& this.enemyShipSpecialExplosionCooldown.checkFinished())
-			this.enemyShipSpecial = null;
-
 		// Removes enemies that finished shrinking.
 		Iterator<Long> starts = this.shrinkingEnemies.values().iterator();
 		while (starts.hasNext())
@@ -720,17 +673,11 @@ public class GameScreen extends Screen {
 			this.gameOverRowCooldown.reset();
 			this.gameOverRowInterval = Math.max(GAME_OVER_ROW_INTERVAL_MIN,
 					this.gameOverRowInterval - GAME_OVER_ROW_INTERVAL_STEP);
-		} else if (this.enemyShipSpecial != null
-				&& !this.enemyShipSpecial.isDestroyed()) {
-			// The bonus ship sits above the formation, so it goes last.
-			this.shrinkingEnemies.put(this.enemyShipSpecial, now);
-			this.enemyShipSpecial = null;
 		} else if (this.shrinkingEnemies.isEmpty()) {
 			// Short beat on the empty screen before the banner.
 			if (this.gameOverLastEnemyGone == 0)
 				this.gameOverLastEnemyGone = now;
 			if (now - this.gameOverLastEnemyGone >= GAME_OVER_LAST_ROW_HOLD) {
-				this.enemyShipSpecial = null;
 				this.showGameOverText = true;
 				this.gameOverBannerStart = now;
 			}
@@ -902,10 +849,6 @@ public class GameScreen extends Screen {
 			if (this.warpIn != null && this.warpIn.takeImpact())
 				this.screenShake.trigger();
 			drawManager.drawItemShield(this.ship, this.items); // Item System (Team CS)
-			if (this.enemyShipSpecial != null)
-				drawManager.drawEntity(this.enemyShipSpecial,
-						this.enemyShipSpecial.getPositionX(),
-						this.enemyShipSpecial.getPositionY());
 
 			if (this.midBoss != null) {
 				if (this.midBoss.isVisible())
@@ -1129,28 +1072,6 @@ public class GameScreen extends Screen {
 								break;
 						}
 					}
-				}
-				if (this.enemyShipSpecial != null
-						&& !this.enemyShipSpecial.isDestroyed()
-						&& checkCollision(bullet, this.enemyShipSpecial)) {
-					this.score += this.items.scoreFor(this.enemyShipSpecial.getPointValue()); // score boost (Team CS)
-					this.shipsDestroyed++;
-					spawnSparkles(this.enemyShipSpecial); // AUTHORED BY: VFX TEAM (Effection)
-					this.enemyShipSpecial.destroy();
-					this.screenShake.trigger();
-					// Bonus points popup. AUTHORED BY: VFX TEAM (Effection)
-					this.pointsEffect.spawnBonus(
-							this.enemyShipSpecial.getPositionX() + this.enemyShipSpecial.getWidth() / 2,
-							this.enemyShipSpecial.getPositionY() + this.enemyShipSpecial.getHeight() / 2,
-							this.enemyShipSpecial.getPointValue());
-					queueScoreBoostPopup(this.enemyShipSpecial,
-							this.enemyShipSpecial.getPointValue(), true); // Item System (Team CS)
-					dropCoin(this.enemyShipSpecial, BONUS_COIN_VALUE);
-					this.items.onEnemyDefeated(this.enemyShipSpecial, true);
-					showUnlockedAchievement(Core.getAchievementManager()
-							.recordEnemyDefeated());
-					this.enemyShipSpecialExplosionCooldown.reset();
-					recyclable.add(bullet);
 				}
 				// Bonus meteor: only player bullets hit it. VFX TEAM (Effection)
 				if (!recyclable.contains(bullet) && this.meteors.tryHit(bullet))
