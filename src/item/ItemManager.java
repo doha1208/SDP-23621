@@ -272,7 +272,8 @@ public final class ItemManager {
         return item.supportedGrantTimings.contains(GrantTiming.NEXT_LEVEL)
             && item.activationMode == ActivationMode.ON_PICKUP
             && item.durationKind == DurationKind.UNTIL_RUN_END
-            && (item.effectKind == EffectKind.RAPID_FIRE || item.effectKind == EffectKind.BULLET_SPEED);
+            && (item.effectKind == EffectKind.RAPID_FIRE || item.effectKind == EffectKind.BULLET_SPEED
+                || item.effectKind == EffectKind.SPREAD || item.effectKind == EffectKind.PIERCE);
     }
     /** Whether a level is active. Used by the game bridge (ItemSystem) to avoid double begin/end. */
     boolean isLevelActive() { return active; }

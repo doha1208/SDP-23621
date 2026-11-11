@@ -19,6 +19,8 @@ public class Ship extends Entity {
 	private static final int BULLET_SPEED = -6;
 	/** Distance in px from the ship's center to each barrel of a two-way ship. */
 	private static final int BARREL_OFFSET = 8;
+	/** Sideways speed added per step between spread lanes, in px per frame (Team CS). */
+	private static final int SPREAD_STEP = 1;
 
 	/**
 	 * Types of player ships. Each type has its own speed, shooting interval
@@ -117,6 +119,10 @@ public class Ship extends Entity {
 	private double itemBulletSpeedBonus;
 	/** Extra movement speed from items, added to the base speed (Team CS). */
 	private int itemMovementSpeedBonus;
+	/** Extra bullet lanes per shot from the spread item (Team CS). */
+	private int itemSpreadCount;
+	/** Extra enemies each bullet passes through, from the pierce item (Team CS). */
+	private int itemPierceCount;
 
 	/**
 	 * AUTHORED BY: VFX TEAM (effection)
@@ -182,7 +188,9 @@ public class Ship extends Entity {
 
 	/**
 	 * Shoots a bullet upwards. A two-way ship shoots one bullet from each of
-	 * its two barrels instead.
+	 * its two barrels instead. With the spread item every lane of the fan
+	 * fires the ship's own shot, and the pierce item lets each bullet pass
+	 * through extra enemies (Team CS).
 	 *
 	 * @param bullets
 	 *            List of bullets on screen, to add the new bullet.
@@ -194,22 +202,70 @@ public class Ship extends Entity {
 			final int centerX = positionX + this.width / 2;
 			final int bulletSpeed = BULLET_SPEED
 					- (int) Math.round(this.itemBulletSpeedBonus);
-			if (this.type == ShipType.TWO_WAY) {
-				bullets.add(BulletPool.getBullet(centerX - BARREL_OFFSET,
-						positionY, bulletSpeed));
-				bullets.add(BulletPool.getBullet(centerX + BARREL_OFFSET,
-						positionY, bulletSpeed));
-			} else if (this.type == ShipType.BIG_BULLET) {
-				// Spawns a larger projectile (e.g., 9x15 scaled by 2)
-				bullets.add(BulletPool.getCustomBullet(centerX, positionY,
-						bulletSpeed, 9 * 2, 15 * 2));
-			} else {
-				bullets.add(BulletPool.getBullet(centerX, positionY,
-						bulletSpeed));
+			for (int lane : spreadLanes(1 + this.itemSpreadCount)) {
+				final int speedX = lane * SPREAD_STEP;
+				if (this.type == ShipType.TWO_WAY) {
+					addBullet(bullets, BulletPool.getBullet(centerX
+							- BARREL_OFFSET, positionY, bulletSpeed), speedX);
+					addBullet(bullets, BulletPool.getBullet(centerX
+							+ BARREL_OFFSET, positionY, bulletSpeed), speedX);
+				} else if (this.type == ShipType.BIG_BULLET) {
+					// Spawns a larger projectile (e.g., 9x15 scaled by 2)
+					addBullet(bullets, BulletPool.getCustomBullet(centerX,
+							positionY, bulletSpeed, 9 * 2, 15 * 2), speedX);
+				} else {
+					addBullet(bullets, BulletPool.getBullet(centerX,
+							positionY, bulletSpeed), speedX);
+				}
 			}
 			return true;
 		}
 		return false;
+	}
+
+	/** Gives a new bullet its lane and the pierce item's extra hits (Team CS). */
+	private void addBullet(final Set<Bullet> bullets, final Bullet bullet,
+						   final int speedX) {
+		bullet.setSpeedX(speedX);
+		bullet.setPierce(this.itemPierceCount);
+		bullets.add(bullet);
+	}
+
+	/**
+	 * Sideways steps of each lane in a spread fan, symmetric around the
+	 * center (Team CS): 1 lane {0}, 2 {-1, 1}, 3 {-1, 0, 1}, 4 {-2, -1, 1, 2},
+	 * 5 {-2, -1, 0, 1, 2}.
+	 *
+	 * @param lanes
+	 *            Number of lanes, at least 1.
+	 * @return Step of each lane, from left to right.
+	 */
+	static int[] spreadLanes(final int lanes) {
+		final int count = Math.max(1, lanes);
+		final int[] steps = new int[count];
+		final int half = count / 2;
+		int i = 0;
+		for (int step = -half; step <= half; step++) {
+			if (step == 0 && count % 2 == 0)
+				continue;
+			steps[i++] = step;
+		}
+		return steps;
+	}
+
+	/**
+	 * Sets the spread and pierce item stacks used by the next shots (Team CS
+	 * - Item System). With both at 0 the ship shoots exactly as before.
+	 *
+	 * @param spreadCount
+	 *            Extra bullet lanes per shot.
+	 * @param pierceCount
+	 *            Extra enemies each bullet passes through.
+	 */
+	public final void setWeaponMods(final int spreadCount,
+									final int pierceCount) {
+		this.itemSpreadCount = Math.max(0, spreadCount);
+		this.itemPierceCount = Math.max(0, pierceCount);
 	}
 
 	/**

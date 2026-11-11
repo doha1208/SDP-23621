@@ -1094,7 +1094,8 @@ public class GameScreen extends Screen {
 				} else {
 					for (EnemyShip enemyShip : this.enemyShipFormation) {
 						if (!enemyShip.isDestroyed()
-								&& checkCollision(bullet, enemyShip)) {
+								&& checkCollision(bullet, enemyShip)
+								&& bullet.registerHit(enemyShip)) { // Pierce item (Team CS)
 							recyclable.add(bullet);
 							// Surviving hits consume the bullet without awarding kill rewards.
 							if (!enemyShip.takeDamage(1)) {
@@ -1150,6 +1151,7 @@ public class GameScreen extends Screen {
 					recyclable.add(bullet);
 			}
 		}
+		recyclable.removeIf(Bullet::piercesThrough); // Pierce item (Team CS)
 		this.bullets.removeAll(recyclable);
 		BulletPool.recycle(recyclable);
 	}
