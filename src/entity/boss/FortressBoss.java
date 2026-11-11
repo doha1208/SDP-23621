@@ -414,11 +414,9 @@ public final class FortressBoss extends AbstractBoss {
 	}
 
 	@Override
-	public boolean hurts(final Entity ship) {
-		if (super.hurts(ship))
+	protected boolean touches(final Entity ship) {
+		if (super.touches(ship))
 			return true;
-		if (!isFighting())
-			return false;
 		for (BossBomb bomb : this.bombs)
 			if (bomb.hurts(ship))
 				return true;

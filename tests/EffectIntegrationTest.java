@@ -123,16 +123,21 @@ public final class EffectIntegrationTest {
         check(ship.getType() == ShipType.BIG_BULLET && ship.getSpriteType() == shape.getSprite(), "Game keeps ship and look");
         check((Boolean)get(game,"cometTrailOn") && (Boolean)get(game,"lightningOn")
                 && get(game,"ghostTrail") != null && get(game,"warpIn") != null, "Four effects initialized with A1 loadout");
-        EnemyShipFormation formation = (EnemyShipFormation)get(game,"enemyShipFormation");
-        EnemyShip elite = null;
-        for (EnemyShip enemy : formation) if(enemy.getHealth() == 2) {elite=enemy; break;}
-        check(elite != null, "Two-hit enemy exists with effects");
+        // A multi-hit enemy (tank) from the wave-based enemy system.
+        entity.enemy.EnemyManager enemies = new entity.enemy.EnemyManager(448, 520, 40,
+                entity.enemy.EnemyBalance.defaults(), new Random(4));
+        field(GameScreen.class, "enemyManager").set(game, enemies);
+        entity.enemy.Enemy tough = enemies.spawn(entity.enemy.SpawnRequest.of(
+                entity.enemy.EnemyType.TANK, entity.enemy.MovePattern.STRAIGHT_DOWN), 224, 490).get(0);
+        for (int frame = 0; frame < 600 && !(tough.isHittable() && tough.getCenterY() > 80); frame++)
+            enemies.updateEnemies(false, 224, 490);
+        check(tough.isHittable() && tough.getHealth() > 1, "Multi-hit enemy exists with effects");
         Set<Bullet> bullets = (Set<Bullet>)get(game,"bullets");
         LightningChain lightning = (LightningChain)get(game,"lightningChain");
-        for(int hit=1;hit<=2;hit++) {
-            bullets.add(new Bullet(elite.getPositionX(),elite.getPositionY(),-4));
+        for(int hit=1, hits=tough.getHealth();hit<=hits;hit++) {
+            bullets.add(new Bullet(tough.getPositionX(),tough.getPositionY(),-4));
             call(game,"manageCollisions",new Class[]{});
-            check((Integer)get(lightning,"streak") == (hit==1?0:1), "Lightning only on final hit " + hit);
+            check((Integer)get(lightning,"streak") == (hit<hits?0:1), "Lightning only on final hit " + hit);
         }
         Bullet big = BulletPool.getCustomBullet(200,300,-6,18,30);
         image = canvas(); dm.drawBulletTrail(big); dm.drawEntity(big,200,300);
