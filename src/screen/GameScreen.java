@@ -170,7 +170,7 @@ public class GameScreen extends Screen {
 	private GameSettings gameSettings;
 	/** Current difficulty level number. */
 	private int level;
-	/** Enemies and enemy bullets of this level (Team CS enemy overhaul). */
+	/** Enemies and enemy bullets of this level (Team Entities enemy overhaul). */
 	private EnemyManager enemyManager;
 	/** Decides when enemies spawn; normal stages only. */
 	private LevelDirector levelDirector;
@@ -308,7 +308,7 @@ public class GameScreen extends Screen {
 	/** Pending diamonds the level started with, restored by "Restart". */
 	private final int initialPendingDiamonds;
 
-	/** Boss of stages 5 and 10 (Team CS boss overhaul); null on normal stages. */
+	/** Boss of stages 5 and 10 (Team Entities boss overhaul); null on normal stages. */
 	private BossFight boss;
 
 	/**
@@ -1138,7 +1138,7 @@ public class GameScreen extends Screen {
 	}
 
 	/**
-	 * A player bullet against the boss (Team CS boss overhaul): scores
+	 * A player bullet against the boss (Team Entities boss overhaul): scores
 	 * destroyed parts and the defeat.
 	 *
 	 * @param bullet Player bullet.
@@ -1168,9 +1168,9 @@ public class GameScreen extends Screen {
 	}
 
 	/**
-	 * Enemy bullets, enemy bodies and the boss hitting the player (Team CS
-	 * enemy overhaul). Any enemy that rams the player explodes, without
-	 * rewards, however much health it had left.
+	 * Enemy bullets, enemy bodies and the boss hitting the player (Team
+	 * Entities enemy overhaul). Any enemy that rams the player explodes,
+	 * without rewards, however much health it had left.
 	 */
 	private void manageEnemyCollisions() {
 		if (this.levelFinished)
@@ -1184,7 +1184,7 @@ public class GameScreen extends Screen {
 			}
 		if (this.ship.isDestroyed())
 			return;
-		// Boss lasers, rising attack, body, bombs and drones (Team CS).
+		// Boss lasers, rising attack, body, bombs and drones (Team Entities).
 		if (this.boss != null && this.boss.hurts(this.ship)) {
 			hitPlayer();
 			return;
