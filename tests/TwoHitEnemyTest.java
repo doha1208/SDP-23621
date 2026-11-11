@@ -112,74 +112,9 @@ public final class TwoHitEnemyTest {
                 "Combined formation moves diagonally with spacing preserved");
         }
 
-        GameScreen screen = new GameScreen(new GameState(6, 0, 3, 0, 0, 0),
-            new GameSettings(3, 2, 10, 1000, 1), false, 448, 520, 60);
-        screen.initialize();
-        ((CoinDropManager) get(screen, "coinDropManager")).setDropChance(1);
-        EnemyShipFormation formation = (EnemyShipFormation) get(screen, "enemyShipFormation");
-        EnemyShip elite = null;
-        EnemyShip ordinary = null;
-        for (EnemyShip enemy : formation) {
-            if (enemy.getHealth() == 2) elite = enemy;
-            else ordinary = enemy;
-        }
-        check(elite != null && Color.YELLOW.equals(elite.getColor()), "Elite is yellow");
-        int killsBefore = Core.getAchievementManager().getTotalEnemiesKilled();
-        boolean couldShoot = ((java.util.List<?>) get(formation, "shooters")).contains(elite);
-        hit(screen, elite);
-        check(elite.getHealth() == 1 && !elite.isDestroyed(), "First hit survives");
-        check(Color.WHITE.equals(elite.getColor()), "First hit changes color");
-        check(bullets(screen).isEmpty(), "Nonlethal bullet consumed");
-        check((Integer) get(formation, "shipCount") == 6, "First hit keeps formation count");
-        check(((java.util.List<?>) get(formation, "shooters")).contains(elite) == couldShoot,
-            "First hit keeps shooting eligibility");
-        check(screen.getGameState().getScore() == 0, "No score for first hit");
-        check(screen.getGameState().getShipsDestroyed() == 0, "No kill for first hit");
-        check(((Set<?>) get(screen, "coins")).isEmpty(), "No coin for first hit");
-        check(Core.getAchievementManager().getTotalEnemiesKilled() == killsBefore,
-            "No achievement progress for first hit");
-        call(screen, "manageCollisions");
-        check(elite.getHealth() == 1, "Consumed bullet cannot hit next frame");
-
-        hit(screen, elite);
-        check(elite.isDestroyed(), "Second hit destroys");
-        check(screen.getGameState().getScore() == elite.getPointValue(), "One score reward");
-        check(screen.getGameState().getShipsDestroyed() == 1, "One kill");
-        check(((Set<?>) get(screen, "coins")).size() == 1, "One coin reward");
-        check(Core.getAchievementManager().getTotalEnemiesKilled() == killsBefore + 1,
-            "One achievement increment");
-        check((Integer) get(formation, "shipCount") == 5, "Count reduced only on death");
-        check(!((java.util.List<?>) get(formation, "shooters")).contains(elite),
-            "Dead shooter replaced");
-        hit(screen, elite);
-        check(screen.getGameState().getShipsDestroyed() == 1, "Dead enemy cannot reward twice");
-        bullets(screen).clear();
-        hit(screen, ordinary);
-        check(ordinary.isDestroyed(), "Ordinary enemy remains one-hit");
-
-        // Preserve existing wide-bullet multi-target collisions, once per enemy.
-        call(screen, "restartLevel");
-        formation = (EnemyShipFormation) get(screen, "enemyShipFormation");
-        int left = Integer.MAX_VALUE;
-        int top = Integer.MAX_VALUE;
-        for (EnemyShip enemy : formation) {
-            left = Math.min(left, enemy.getPositionX());
-            top = Math.min(top, enemy.getPositionY());
-        }
-        bullets(screen).add(new Bullet(left, top, -4, 200, 100));
-        call(screen, "manageCollisions");
-        int totalHealth = 0;
-        for (EnemyShip enemy : formation) totalHealth += enemy.getHealth();
-        check(totalHealth == 1, "Wide bullet damages each overlapping enemy once");
-        check(bullets(screen).isEmpty(), "Wide bullet consumed");
-        call(screen, "restartLevel");
-        formation = (EnemyShipFormation) get(screen, "enemyShipFormation");
-        for (EnemyShip enemy : formation) {
-            hit(screen, enemy);
-            if (!enemy.isDestroyed()) hit(screen, enemy);
-        }
-        check((Integer) get(formation, "shipCount") == 0, "Wave can be cleared");
-        check(screen.getGameState().getShipsDestroyed() == 6, "Mixed wave counts six kills");
+        // GameScreen no longer builds a formation in normal stages (wave-based
+        // enemies replaced it), so multi-hit, reward and wide-bullet checks for
+        // the game screen live in EnemyOverhaulTest.
         System.out.println("PASS: " + checks + " checks");
     }
 }
