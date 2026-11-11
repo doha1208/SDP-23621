@@ -572,7 +572,7 @@ public class GameScreen extends Screen {
 						playerCenterY());
 				this.enemyManager.updateEnemies(this.items.enemiesFrozen(),
 						playerCenterX(), playerCenterY());
-				this.meteors.trySpawn(this.enemyManager.countOnScreen(), this.ship); // VFX meteor needs a normal stage.
+				this.meteors.trySpawn(this.enemyManager.countAlive(), this.ship); // VFX meteor needs a normal stage.
 			}
 			updateLowHealthEffect();
 			this.ship.setBlinking(this.lowHealthActive);
