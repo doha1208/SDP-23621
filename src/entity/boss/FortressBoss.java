@@ -397,11 +397,12 @@ public final class FortressBoss extends AbstractBoss {
 			this.bursts.add(new Burst(coreCenterX(core),
 					core.y + core.height / 2, this.frame * 31L + (long) core.centerX));
 			this.hullFlash = HULL_FLASH_FRAMES;
-			int points = (int) Math.round(this.balance.get("fortress.corePoints"));
+			// Cores give no points of their own; only the defeat scores.
+			int points = 0;
 			boolean beaten = !this.left.alive() && !this.center.alive()
 					&& !this.right.alive();
 			if (beaten) {
-				points += (int) Math.round(this.balance.get("fortress.defeatPoints"));
+				points = (int) Math.round(this.balance.get("fortress.defeatPoints"));
 				defeat();
 			}
 			return new BossHit(points, coreCenterX(core),

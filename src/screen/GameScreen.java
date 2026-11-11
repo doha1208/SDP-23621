@@ -1059,8 +1059,9 @@ public class GameScreen extends Screen {
 	}
 
 	/**
-	 * A player bullet against the boss (Team Entities boss overhaul): scores
-	 * destroyed parts and the defeat.
+	 * A player bullet against the boss (Team Entities boss overhaul). Boss
+	 * parts give no score and do not count as enemy kills; only the defeat
+	 * (and raider drones) score, and only the defeat counts as a kill.
 	 *
 	 * @param bullet Player bullet.
 	 * @return True if the boss took the bullet.
@@ -1074,17 +1075,19 @@ public class GameScreen extends Screen {
 				SoundManager.getInstance().playSfx(Sound.ENEMY_HIT);
 			return true;
 		}
-		this.score += this.items.scoreFor(hit.points);
-		this.pointsEffect.spawn((int) hit.x, (int) hit.y, hit.points);
+		if (hit.points > 0) {
+			this.score += this.items.scoreFor(hit.points);
+			this.pointsEffect.spawn((int) hit.x, (int) hit.y, hit.points);
+		}
 		this.screenShake.trigger();
 		SoundManager.getInstance().playSfx(Sound.ENEMY_EXPLOSION);
 		if (hit.bossDefeated) {
 			this.shipsDestroyed++;
 			showUnlockedAchievement(Core.getAchievementManager()
 					.recordBossDefeated());
+			showUnlockedAchievement(Core.getAchievementManager()
+					.recordEnemyDefeated());
 		}
-		showUnlockedAchievement(Core.getAchievementManager()
-				.recordEnemyDefeated());
 		return true;
 	}
 
