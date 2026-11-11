@@ -244,6 +244,18 @@ public final class EnemyManager implements Iterable<Enemy> {
 		return total;
 	}
 
+	/**
+	 * @return Enemies not yet destroyed, including formation members still
+	 *         waiting to enter: the "enemies left" of the old formation.
+	 */
+	public int countAlive() {
+		int count = 0;
+		for (Enemy enemy : this.enemies)
+			if (!enemy.isDestroyed())
+				count++;
+		return count;
+	}
+
 	/** @return True when no enemy is left, including waiting or exploding ones. */
 	public boolean isEmpty() {
 		return this.enemies.isEmpty();

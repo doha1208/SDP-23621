@@ -572,7 +572,7 @@ public class GameScreen extends Screen {
 						playerCenterY());
 				this.enemyManager.updateEnemies(this.items.enemiesFrozen(),
 						playerCenterX(), playerCenterY());
-				this.meteors.trySpawn(this.enemyManager.countOnScreen(), this.ship); // VFX meteor needs a normal stage.
+				this.meteors.trySpawn(this.enemyManager.countAlive(), this.ship); // VFX meteor needs a normal stage.
 			}
 			updateLowHealthEffect();
 			this.ship.setBlinking(this.lowHealthActive);
@@ -1091,6 +1091,10 @@ public class GameScreen extends Screen {
 						recyclable.add(bullet);
 					}
 				} else {
+					// A normal bullet stops at the first enemy it hits; only a
+					// wider one (big-bullet ship) goes on through overlapping
+					// enemies, hitting each once.
+					boolean piercing = bullet.getWidth() > Bullet.DEFAULT_WIDTH;
 					for (Enemy enemy : this.enemyManager) {
 						if (enemy.isHittable()
 								&& checkCollision(bullet, enemy)) {
@@ -1098,7 +1102,9 @@ public class GameScreen extends Screen {
 							// Surviving hits consume the bullet without awarding kill rewards.
 							if (!enemy.takeDamage(1)) {
 								SoundManager.getInstance().playSfx(Sound.ENEMY_HIT);
-								continue;
+								if (piercing)
+									continue;
+								break;
 							}
 							this.score += this.items.scoreFor(enemy.getPointValue());
 							this.shipsDestroyed++;
@@ -1119,6 +1125,8 @@ public class GameScreen extends Screen {
 							this.items.onEnemyDefeated(enemy, false);
 							showUnlockedAchievement(Core.getAchievementManager()
 									.recordEnemyDefeated());
+							if (!piercing)
+								break;
 						}
 					}
 				}
