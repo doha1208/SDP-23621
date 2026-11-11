@@ -47,6 +47,8 @@ abstract class AbstractBoss implements BossFight {
 	private int deathFrames = -1;
 	private boolean stopped;
 	private boolean modifiersGiven;
+	/** True while the freeze item holds the boss: it hurts no one. */
+	private boolean frozen;
 	/** Frames left before the boss can hurt the player again. */
 	private int hitGrace;
 
@@ -73,6 +75,7 @@ abstract class AbstractBoss implements BossFight {
 	public final void update(final EnemyManager manager, final double playerX,
 			final double playerY, final boolean frozen) {
 		this.enemies = manager;
+		this.frozen = frozen;
 		if (this.hitGrace > 0)
 			this.hitGrace--;
 		if (!this.modifiersGiven) {
@@ -191,11 +194,12 @@ abstract class AbstractBoss implements BossFight {
 	/**
 	 * Lasers, the rising attack, charge lanes and the raider's body stay on
 	 * the ship for many frames, so after one hit (or a shield block) the
-	 * boss cannot hurt the player again for common.hitGrace seconds.
+	 * boss cannot hurt the player again for common.hitGrace seconds. A
+	 * frozen boss hurts no one.
 	 */
 	@Override
 	public final boolean hurts(final Entity ship) {
-		if (!isFighting() || this.hitGrace > 0
+		if (!isFighting() || this.frozen || this.hitGrace > 0
 				|| !touches(ship))
 			return false;
 		this.hitGrace = this.balance.frames("common.hitGrace");
