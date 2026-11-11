@@ -308,7 +308,7 @@ public class GameScreen extends Screen {
 	/** Pending diamonds the level started with, restored by "Restart". */
 	private final int initialPendingDiamonds;
 
-	/** Boss of stages 5 and 10 (Team CS boss overhaul); null on normal stages. */
+	/** Boss of stages 5 and 10 (Team Entities boss overhaul); null on normal stages. */
 	private BossFight boss;
 
 	/**
@@ -1138,7 +1138,7 @@ public class GameScreen extends Screen {
 	}
 
 	/**
-	 * A player bullet against the boss (Team CS boss overhaul): scores
+	 * A player bullet against the boss (Team Entities boss overhaul): scores
 	 * destroyed parts and the defeat.
 	 *
 	 * @param bullet Player bullet.
@@ -1184,7 +1184,7 @@ public class GameScreen extends Screen {
 			}
 		if (this.ship.isDestroyed())
 			return;
-		// Boss lasers, rising attack, body, bombs and drones (Team CS).
+		// Boss lasers, rising attack, body, bombs and drones (Team Entities).
 		if (this.boss != null && this.boss.hurts(this.ship)) {
 			hitPlayer();
 			return;
