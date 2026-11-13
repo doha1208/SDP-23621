@@ -297,7 +297,9 @@ public final class DrawManager {
 		backBuffer = new BufferedImage(screen.getWidth(), screen.getHeight(),
 				BufferedImage.TYPE_INT_RGB);
 
-		graphics = frame.getGraphics();
+		// Headless regression checks render the same scene into this buffer.
+		graphics = frame == null && java.awt.GraphicsEnvironment.isHeadless()
+				? null : frame.getGraphics();
 		backBufferGraphics = backBuffer.getGraphics();
 		worldOffsetX = 0;
 		worldOffsetY = 0;
@@ -322,8 +324,9 @@ public final class DrawManager {
 	 */
 	public void completeDrawing(final Screen screen) {
 		setWorldOffset(0, 0);
-		graphics.drawImage(backBuffer, frame.getInsets().left,
-				frame.getInsets().top, frame);
+		if (graphics != null)
+			graphics.drawImage(backBuffer, frame.getInsets().left,
+					frame.getInsets().top, frame);
 	}
 
 	/**
@@ -1617,7 +1620,10 @@ public final class DrawManager {
 
 		double centerX = entity.getPositionX() + entity.getWidth() / 2.0;
 		double centerY = entity.getPositionY() + entity.getHeight() / 2.0;
-		int pixelSize = Math.max(1, (int) Math.round(2 * scale));
+		// Sprite pixel size on screen: 2 for most entities, bigger for
+		// tanks and elite enemies (Team Entities).
+		double cell = (double) entity.getWidth() / image.length;
+		int pixelSize = Math.max(1, (int) Math.round(cell * scale));
 
 		backBufferGraphics.setColor(new Color(color.getRed(),
 				color.getGreen(), color.getBlue(), alpha));
@@ -1625,9 +1631,9 @@ public final class DrawManager {
 			for (int j = 0; j < image[i].length; j++)
 				if (image[i][j])
 					backBufferGraphics.fillRect(
-							(int) (centerX + (i * 2 - entity.getWidth()
+							(int) (centerX + (i * cell - entity.getWidth()
 									/ 2.0) * scale),
-							(int) (centerY + (j * 2 - entity.getHeight()
+							(int) (centerY + (j * cell - entity.getHeight()
 									/ 2.0) * scale),
 							pixelSize, pixelSize);
 	}

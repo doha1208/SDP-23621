@@ -47,6 +47,10 @@ abstract class AbstractBoss implements BossFight {
 	private int deathFrames = -1;
 	private boolean stopped;
 	private boolean modifiersGiven;
+	/** True while the freeze item holds the boss: it hurts no one. */
+	private boolean frozen;
+	/** Frames left before the boss can hurt the player again. */
+	private int hitGrace;
 
 	/**
 	 * @param balance Boss balance values.
@@ -71,6 +75,9 @@ abstract class AbstractBoss implements BossFight {
 	public final void update(final EnemyManager manager, final double playerX,
 			final double playerY, final boolean frozen) {
 		this.enemies = manager;
+		this.frozen = frozen;
+		if (this.hitGrace > 0)
+			this.hitGrace--;
 		if (!this.modifiersGiven) {
 			// Summoned helpers get the same stage multipliers.
 			manager.setStageModifiers(this.modifiers);
@@ -184,10 +191,29 @@ abstract class AbstractBoss implements BossFight {
 		return this.deathFrames;
 	}
 
+	/**
+	 * Lasers, the rising attack, charge lanes and the raider's body stay on
+	 * the ship for many frames, so after one hit (or a shield block) the
+	 * boss cannot hurt the player again for common.hitGrace seconds. A
+	 * frozen boss hurts no one.
+	 */
 	@Override
-	public boolean hurts(final Entity ship) {
-		if (!isFighting())
+	public final boolean hurts(final Entity ship) {
+		if (!isFighting() || this.frozen || this.hitGrace > 0
+				|| !touches(ship))
 			return false;
+		this.hitGrace = this.balance.frames("common.hitGrace");
+		return true;
+	}
+
+	/**
+	 * Called only while the boss may hurt the player.
+	 *
+	 * @param ship Player ship.
+	 * @return True if a zone, the body, a bomb or a drone touches the ship;
+	 *         a bomb or drone that touches it is used up.
+	 */
+	protected boolean touches(final Entity ship) {
 		for (BossHazard hazard : this.hazards)
 			if (hazard.hurts(ship))
 				return true;

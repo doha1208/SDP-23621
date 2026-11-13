@@ -299,11 +299,9 @@ public final class RaiderBoss extends AbstractBoss {
 	}
 
 	@Override
-	public boolean hurts(final Entity ship) {
-		if (super.hurts(ship))
+	protected boolean touches(final Entity ship) {
+		if (super.touches(ship))
 			return true;
-		if (!isFighting())
-			return false;
 		if (bodyOnScreen() && BossHazard.overlaps(this.x, this.y, WIDTH,
 				HEIGHT, ship))
 			return true;

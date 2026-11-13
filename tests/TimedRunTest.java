@@ -1,8 +1,13 @@
+import java.awt.event.KeyEvent;
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.imageio.ImageIO;
 
 import engine.*;
 import engine.soundEngine.SoundManager;
@@ -14,6 +19,8 @@ import item.ItemSystem;
 import level.*;
 import screen.GameScreen;
 import screen.Screen;
+import screen.ScoreScreen;
+import screen.Starfield;
 
 /** Headless, muted integration tests. Compile into an isolated save directory. */
 public final class TimedRunTest {
@@ -233,12 +240,106 @@ public final class TimedRunTest {
         public String getName() { return "test boss"; }
     }
 
+    private static void render(Screen screen, String directory, String name) throws Exception {
+        call(screen, "draw");
+        BufferedImage image = (BufferedImage)field(DrawManager.class, "backBuffer").get(null);
+        check(image.getWidth() == 448 && image.getHeight() == 520, "Render size: " + name);
+        check(field(DrawManager.class, "frame").get(null) == null, "No desktop window: " + name);
+        if (directory != null) {
+            File folder = new File(directory);
+            if (!folder.isDirectory() && !folder.mkdirs()) throw new java.io.IOException(directory);
+            ImageIO.write(image, "png", new File(folder, name + ".png"));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void mergedGameplayChecks(String directory) throws Exception {
+        String previousOrder = System.getProperty(BossRoster.ORDER_PROPERTY);
+        boolean[] keys = (boolean[])field(InputManager.class, "keys").get(null);
+        try {
+            for (String kind : new String[]{"fortress", "raider"}) {
+                System.setProperty(BossRoster.ORDER_PROPERTY, kind);
+                BossRoster.newRun();
+                GameScreen game = game();
+                active(game);
+                Ship ship = (Ship)get(game, "ship");
+                int startX = ship.getPositionX();
+                keys[KeyEvent.VK_RIGHT] = true;
+                call(game, "update");
+                keys[KeyEvent.VK_RIGHT] = false;
+                check(ship.getPositionX() > startX, "Movement through game update: " + kind);
+                Starfield stars = (Starfield)get(game, "starfield");
+                float[] before = ((float[])get(stars, "y")).clone();
+                call(game, "update");
+                check(!Arrays.equals(before, (float[])get(stars, "y")), "Merged starfield moves");
+                if (kind.equals("fortress")) {
+                    for (int i = 0; i < 240; i++) call(game, "updateState");
+                    render(game, directory, "timed-run-combat");
+                    set(game, "pauseKeyCooldown", Core.getCooldown(0));
+                    keys[KeyEvent.VK_P] = true;
+                    call(game, "update");
+                    keys[KeyEvent.VK_P] = false;
+                    before = ((float[])get(stars, "y")).clone();
+                    call(game, "update");
+                    check((Boolean)get(game, "paused")
+                            && Arrays.equals(before, (float[])get(stars, "y")), "Pause holds starfield");
+                    render(game, directory, "timed-run-pause");
+                    call(game, "resumeGameplay");
+                }
+                progress(game, 0); progress(game, 120 * SECOND);
+                BossFight boss = (BossFight)get(game, "boss");
+                check(kind.equals("fortress") ? boss instanceof FortressBoss : boss instanceof RaiderBoss,
+                        "Real selected boss: " + kind);
+                for (int i = 0; i < 90; i++) call(game, "update");
+                render(game, directory, "timed-run-" + kind);
+                int scoreBefore = game.getGameState().getScore();
+                int killsBefore = game.getGameState().getShipsDestroyed();
+                int health = boss.getHealth();
+                Set<Bullet> bullets = (Set<Bullet>)get(game, "bullets");
+                for (int i = 0; i < health + 1 && !boss.isDefeated(); i++) {
+                    bullets.add(new Bullet(0, 40, -4, 448, 170));
+                    call(game, "manageCollisions");
+                }
+                check(boss.isDefeated(), "Real collision path defeats " + kind);
+                check(game.getGameState().getShipsDestroyed() == killsBefore + 1,
+                        "Only the boss defeat counts as a kill: " + kind);
+                call(game, "update");
+                check((Boolean)get(game, "levelFinished")
+                        && ((TimedRun)get(game, "timedRun")).getPhase() == TimedRun.Phase.WON,
+                        "Real boss defeat clears run: " + kind);
+                check(game.getGameState().getScore() > scoreBefore, "Boss gives score: " + kind);
+                int finalScore = game.getGameState().getScore();
+                call(game, "manageCollisions"); call(game, "update");
+                check(game.getGameState().getScore() == finalScore, "No repeated boss reward");
+                ScoreScreen results = new ScoreScreen(448, 520, 60, game.getGameState(), true);
+                results.initialize();
+                set(results, "inputDelay", Core.getCooldown(0));
+                render(results, directory, "timed-run-clear-" + kind);
+                call(game, "restartLevel");
+                check(get(game, "boss") == null && ((TimedRun)get(game, "timedRun")).remainingSeconds() == 120,
+                        "Real boss clear restarts to combat: " + kind);
+                set(game, "lives", 0); active(game);
+                call(game, "update");
+                check((Boolean)get(game, "gameOverActive"), "Real death enters game over: " + kind);
+                render(game, directory, "timed-run-loss-" + kind);
+            }
+        } finally {
+            Arrays.fill(keys, false);
+            if (previousOrder == null) System.clearProperty(BossRoster.ORDER_PROPERTY);
+            else System.setProperty(BossRoster.ORDER_PROPERTY, previousOrder);
+            BossRoster.newRun();
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         check(java.awt.GraphicsEnvironment.isHeadless(), "Require -Djava.awt.headless=true");
+        if (System.getProperty(LevelDirectors.SEED_PROPERTY) == null)
+            System.setProperty(LevelDirectors.SEED_PROPERTY, "1");
         Core.getLogger().setUseParentHandlers(false);
         SoundManager.getInstance().setMuted(true);
         clockChecks();
         integrationChecks();
+        mergedGameplayChecks(args.length == 0 ? null : args[0]);
         System.out.println("TimedRunTest: " + checks + " checks passed");
     }
 }

@@ -58,6 +58,7 @@ public final class FinalBossAttackTest {
 
     public static void main(String[] args) throws Exception {
         Core.getLogger().setUseParentHandlers(false);
+        engine.soundEngine.SoundManager.getInstance().setMuted(true);
         mixedBulletSizesStaySeparate();
         recycledBulletsLoseSidewaysSpeed();
         aimedShotHeadsForThePlayer();
@@ -215,21 +216,17 @@ public final class FinalBossAttackTest {
     }
 
     private static void pausePreservesBossWarningsAndGracePeriod() throws Exception {
-        GameScreen screen = new GameScreen(new GameState(10, 0, 3, 0, 0, 0),
-                SETTINGS, false, WIDTH, HEIGHT, 60);
-        screen.initialize();
-        FinalBoss boss = (FinalBoss) get(screen, "midBoss");
+        // The game no longer uses this boss (Team CS boss overhaul), so the
+        // pause is applied to the boss directly instead of via GameScreen.
+        FinalBoss boss = boss(200, 60);
         boss.moveBoss(WIDTH, HEIGHT, SETTINGS);
         call(boss, "startBulletRain");
         call(boss, "startTeleport", WIDTH, HEIGHT);
         int startX = boss.getPositionX();
         int startY = boss.getPositionY();
 
-        set(screen, "paused", true);
-        set(screen, "pauseStartedAt", System.currentTimeMillis());
         Thread.sleep(900);
-        call(screen, "confirmPauseSelection");
-        check(!(Boolean) get(screen, "paused"), "Pause menu resumes gameplay");
+        boss.resumeAfterPause(900);
         Set<Bullet> bullets = new HashSet<Bullet>();
         check(!(Boolean) call(boss, "dropPendingRain", bullets)
                 && bullets.isEmpty(), "Rain warning survives a long pause");

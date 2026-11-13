@@ -40,7 +40,6 @@ public final class BossBalance {
 		Map<String, Double> d = new LinkedHashMap<String, Double>();
 		d.put("fortress.sideCoreHealth", 40.0);
 		d.put("fortress.centerCoreHealth", 60.0);
-		d.put("fortress.corePoints", 300.0);
 		d.put("fortress.defeatPoints", 1000.0);
 		d.put("fortress.sway", 6.0);
 		d.put("fortress.restTime", 1.2);
@@ -86,6 +85,7 @@ public final class BossBalance {
 		d.put("raider.drones.chaseTime", 2.5);
 		d.put("raider.drones.health", 1.0);
 		d.put("raider.drones.points", 20.0);
+		d.put("common.hitGrace", 2.0);
 		for (int level : new int[] {5, 10}) {
 			double multiplier = 1 + 0.05 * (level - 1);
 			d.put("stage" + level + ".speed", multiplier);
