@@ -1,15 +1,21 @@
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import engine.Core;
 import engine.GameSettings;
 import engine.GameState;
 import entity.Bullet;
 import entity.BulletPool;
-import entity.EnemyShip;
-import entity.EnemyShipFormation;
 import entity.Ship;
+import entity.enemy.Enemy;
+import entity.enemy.EnemyBalance;
+import entity.enemy.EnemyManager;
+import entity.enemy.EnemyType;
+import entity.enemy.MovePattern;
+import entity.enemy.SpawnRequest;
 import item.ItemAPI;
 import item.ItemSystem;
 import screen.GameScreen;
@@ -68,6 +74,29 @@ public final class WeaponUpgradeTest {
         Set<Bullet> bullets = new HashSet<Bullet>();
         check(ship.shoot(bullets), "Ship shoots");
         return bullets;
+    }
+
+    private static EnemyManager waveManager(GameScreen screen, long seed) throws Exception {
+        EnemyManager manager = new EnemyManager(448, 520, 40, EnemyBalance.defaults(), new Random(seed));
+        Field field = GameScreen.class.getDeclaredField("enemyManager");
+        field.setAccessible(true);
+        field.set(screen, manager);
+        return manager;
+    }
+
+    /** Moves enemies until the given one is on screen and can be hit. */
+    private static Enemy bringIn(EnemyManager manager, Enemy enemy) {
+        for (int frame = 0; frame < 600 && !(enemy.isHittable() && enemy.isOnScreen()
+            && enemy.getCenterY() > 70); frame++)
+            manager.updateEnemies(false, 224, 490);
+        check(enemy.isHittable() && enemy.isOnScreen(), "Enemy enters the screen");
+        return enemy;
+    }
+
+    private static int downed(List<Enemy> enemies) {
+        int count = 0;
+        for (Enemy enemy : enemies) if (enemy.isDestroyed()) count++;
+        return count;
     }
 
     @SuppressWarnings("unchecked")
@@ -136,27 +165,40 @@ public final class WeaponUpgradeTest {
         check(shootOnce(piercer).iterator().next().getPierce() == 3, "Ship bullets carry pierce");
         items.endLevel();
 
-        // Pierce in the game: a 1-pierce bullet goes through one enemy and stops at the next.
+        // Pierce in the game (wave enemies, Team Entities enemy overhaul).
         GameScreen screen = new GameScreen(new GameState(1, 0, 3, 0, 0, 0),
-            new GameSettings(1, 3, 10, 1000), false, 448, 520, 60);
+            new GameSettings(5, 2, 60, 2000), false, 448, 520, 60);
         screen.initialize();
-        EnemyShipFormation formation = (EnemyShipFormation) get(screen, "enemyShipFormation");
-        EnemyShip lower = null, upper = null;
-        for (EnemyShip enemy : formation) {
-            if (lower == null || enemy.getPositionY() > lower.getPositionY()) lower = enemy;
-            if (upper == null || enemy.getPositionY() < upper.getPositionY()) upper = enemy;
-        }
-        Bullet shot = new Bullet(lower.getPositionX(), lower.getPositionY(), -4);
+
+        // A 1-pierce bullet goes through one enemy of a column and stops at the next.
+        EnemyManager manager = waveManager(screen, 15);
+        List<Enemy> column = manager.spawn(
+            SpawnRequest.of(EnemyType.NORMAL, MovePattern.STRAIGHT_DOWN), 224, 490);
+        bringIn(manager, column.get(column.size() - 1));
+        check(column.size() >= 3, "Column has at least three enemies");
+        Bullet shot = new Bullet((int) column.get(0).getCenterX() - Bullet.DEFAULT_WIDTH / 2,
+            40, -4, Bullet.DEFAULT_WIDTH, 480);
         shot.setPierce(1);
         bullets(screen).add(shot);
         call(screen, "manageCollisions");
-        check(lower.isDestroyed() && bullets(screen).contains(shot), "Bullet pierces the first enemy");
+        check(downed(column) == 1 && bullets(screen).contains(shot), "Bullet pierces the first enemy");
         call(screen, "manageCollisions");
-        check(bullets(screen).contains(shot), "Destroyed enemy is not hit again");
-        shot.setPositionX(upper.getPositionX());
-        shot.setPositionY(upper.getPositionY());
+        check(downed(column) == 2 && !bullets(screen).contains(shot), "Second enemy stops the bullet");
         call(screen, "manageCollisions");
-        check(upper.isDestroyed() && !bullets(screen).contains(shot), "Second enemy stops the bullet");
+        check(downed(column) == 2, "Stopped bullet hits nothing more");
+
+        // A piercing bullet damages a tough enemy once and does not hit it again.
+        manager = waveManager(screen, 11);
+        Enemy tank = bringIn(manager, manager.spawn(
+            SpawnRequest.of(EnemyType.TANK, MovePattern.STRAIGHT_DOWN), 224, 490).get(0));
+        int health = tank.getHealth();
+        Bullet through = new Bullet(tank.getPositionX(), tank.getPositionY(), -4);
+        through.setPierce(1);
+        bullets(screen).add(through);
+        call(screen, "manageCollisions");
+        call(screen, "manageCollisions");
+        check(tank.getHealth() == health - 1 && bullets(screen).contains(through),
+            "Tough enemy is hit once and pierced");
         Bullet plain = new Bullet(0, 0, -4);
         check(plain.getPierce() == 0, "Bullets without the item do not pierce");
 
