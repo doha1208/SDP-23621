@@ -64,8 +64,13 @@ public final class DashVisualEffect {
                         new Color(c.getRed(), c.getGreen(), c.getBlue(), alpha));
             }
             if (!active) return;
-            int width = sprite.length * PIXEL, height = sprite[0].length * PIXEL;
-            int edge = (int) Math.round(x) + (direction < 0 ? width : 0);
+            int height = sprite[0].length * PIXEL, row = sprite[0].length / 2;
+            int col = direction > 0 ? 0 : sprite.length - 1;
+            while (col >= 0 && col < sprite.length && !sprite[col][row])
+                col += direction > 0 ? 1 : -1;
+            // Use the actual hull at its middle row, not transparent sprite padding.
+            if (col < 0 || col >= sprite.length) col = direction > 0 ? 0 : sprite.length - 1;
+            int edge = (int) Math.round(x) + (direction > 0 ? col : col + 1) * PIXEL;
             int center = (int) Math.round(y) + height / 2;
             int length = now - start < 40 ? 10 : 14 + ((int) ((now - start) / 30) % 2) * 4;
             int left = direction > 0 ? edge - length : edge;
