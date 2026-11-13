@@ -44,6 +44,7 @@ public final class EffectIntegrationTest {
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static void main(String[] args) throws Exception {
         Core.getLogger().setUseParentHandlers(false);
+        engine.soundEngine.SoundManager.getInstance().setMuted(true);
         DrawManager dm = Core.getDrawManager();
         // Verify every resource's bit pattern against its registered sprite, not just its size.
         Map<DrawManager.SpriteType, boolean[][]> sprites =
@@ -119,6 +120,7 @@ public final class EffectIntegrationTest {
         GameSettings settings = (GameSettings) field(Core.class, "SETTINGS_LEVEL_6").get(null);
         GameScreen game = new GameScreen(new GameState(6,0,3,0,0,0), settings, false,448,520,60);
         game.initialize();
+        field(Screen.class, "inputDelay").set(game, Core.getCooldown(0));
         Ship ship = (Ship)get(game,"ship");
         check(ship.getType() == ShipType.BIG_BULLET && ship.getSpriteType() == shape.getSprite(), "Game keeps ship and look");
         check((Boolean)get(game,"cometTrailOn") && (Boolean)get(game,"lightningOn")

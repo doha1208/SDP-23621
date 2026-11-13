@@ -14,7 +14,7 @@ import screen.GameScreen;
 import screen.Starfield;
 import screen.TitleScreen;
 
-/** Standalone integration test; run with a display and isolated save files. */
+/** Standalone integration test; supports headless rendering and isolated saves. */
 public final class GameplayStarfieldTest {
     private static int checks;
 
@@ -46,12 +46,15 @@ public final class GameplayStarfieldTest {
 
     public static void main(String[] args) throws Exception {
         Core.getLogger().setUseParentHandlers(false);
+        engine.soundEngine.SoundManager.getInstance().setMuted(true);
         final Frame[] window = new Frame[1];
-        SwingUtilities.invokeAndWait(() -> window[0] = new Frame(448, 548));
+        if (!java.awt.GraphicsEnvironment.isHeadless())
+            SwingUtilities.invokeAndWait(() -> window[0] = new Frame(448, 548));
         try {
             DrawManager dm = Core.getDrawManager();
             dm.setFrame(window[0]);
-            int width = window[0].getWidth(), height = window[0].getHeight();
+            int width = window[0] == null ? 448 : window[0].getWidth();
+            int height = window[0] == null ? 520 : window[0].getHeight();
             String output = args.length == 0 ? null : args[0];
             TitleScreen title = new TitleScreen(width, height, 60);
             Starfield titleStars = (Starfield) field(TitleScreen.class, "starfield").get(null);
@@ -118,7 +121,7 @@ public final class GameplayStarfieldTest {
             check(true, "Wraparound remains in bounds");
             System.out.println("GameplayStarfieldTest: " + checks + " checks passed");
         } finally {
-            SwingUtilities.invokeAndWait(() -> window[0].dispose());
+            if (window[0] != null) SwingUtilities.invokeAndWait(() -> window[0].dispose());
         }
     }
 }

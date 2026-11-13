@@ -31,6 +31,7 @@ public class ScoreScreen extends Screen {
 	private int score;
 	/** Player lives left. */
 	private int livesRemaining;
+	private final boolean cleared;
 	/** Total bullets shot by the player. */
 	private int bulletsShot;
 	/** Total ships destroyed by the player. */
@@ -60,7 +61,14 @@ public class ScoreScreen extends Screen {
 	 */
 	public ScoreScreen(final int width, final int height, final int fps,
 			final GameState gameState) {
+		this(width, height, fps, gameState, false);
+	}
+
+	/** Result of the default timed run; legacy callers keep their original title. */
+	public ScoreScreen(final int width, final int height, final int fps,
+			final GameState gameState, final boolean cleared) {
 		super(width, height, fps);
+		this.cleared = cleared;
 
 		this.score = gameState.getScore();
 		this.livesRemaining = gameState.getLivesRemaining();
@@ -172,7 +180,7 @@ public class ScoreScreen extends Screen {
 		drawManager.initDrawing(this);
 
 		drawManager.drawGameOver(this, this.inputDelay.checkFinished(),
-				this.isNewRecord);
+				this.isNewRecord, this.cleared);
 		// No shots fired means 0% accuracy, not 0 / 0 = NaN.
 		float accuracy = this.bulletsShot > 0
 				? (float) this.shipsDestroyed / this.bulletsShot : 0f;

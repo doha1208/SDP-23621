@@ -58,6 +58,7 @@ public final class FinalBossAttackTest {
 
     public static void main(String[] args) throws Exception {
         Core.getLogger().setUseParentHandlers(false);
+        engine.soundEngine.SoundManager.getInstance().setMuted(true);
         mixedBulletSizesStaySeparate();
         recycledBulletsLoseSidewaysSpeed();
         aimedShotHeadsForThePlayer();

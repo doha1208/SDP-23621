@@ -29,4 +29,12 @@ public final class LevelDirectors {
 		Random random = seed == null ? new Random() : new Random(seed + level);
 		return new RandomDirector(StageSettings.load(level), random);
 	}
+
+	/** Reuse the entity team's stage-one balance for the full timed combat. */
+	public static LevelDirector forTimedRun() {
+		Long seed = Long.getLong(SEED_PROPERTY);
+		return new RandomDirector(StageSettings.load(1)
+				.withDuration(TimedRun.COMBAT_SECONDS),
+				seed == null ? new Random() : new Random(seed + 1), false);
+	}
 }
