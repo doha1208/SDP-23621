@@ -32,6 +32,8 @@ public class Enemy extends Entity {
 	private static final int HIT_FLASH_FRAMES = 6;
 	/** Frames before the same enemy can ram the player again. */
 	private static final int RAM_COOLDOWN_FRAMES = 45;
+	/** Frames between the shots of one volley (burst fire). */
+	private static final int VOLLEY_GAP_FRAMES = 8;
 
 	/** Catalogue entry. */
 	private final EnemyType type;
@@ -66,6 +68,8 @@ public class Enemy extends Entity {
 	private int animationFrames;
 	/** Frames until the next shot. */
 	private int fireTimer;
+	/** Shots fired so far in the current volley. */
+	private int volleyShots;
 	/** Frames of white flash left. */
 	private int hitFlashFrames;
 	/** Frames before it can ram again. */
@@ -136,8 +140,15 @@ public class Enemy extends Entity {
 			this.fireTimer--;
 		if (this.fireTimer > 0 || !isOnScreen())
 			return false;
-		this.fireTimer = this.stats.fireInterval;
-		this.type.getFireStyle().fire(this, targetX, targetY, out);
+		FireStyle style = this.type.getFireStyle();
+		style.fire(this, targetX, targetY, out);
+		// A volley fires its shots a few frames apart, then waits as usual.
+		if (++this.volleyShots < style.getVolley()) {
+			this.fireTimer = VOLLEY_GAP_FRAMES;
+		} else {
+			this.volleyShots = 0;
+			this.fireTimer = this.stats.fireInterval;
+		}
 		return true;
 	}
 

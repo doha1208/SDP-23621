@@ -1093,8 +1093,8 @@ public class GameScreen extends Screen {
 
 	/**
 	 * Enemy bullets, enemy bodies and the boss hitting the player (Team
-	 * Entities enemy overhaul). A rammed enemy is destroyed without rewards; a tough
-	 * one only loses one hit point.
+	 * Entities enemy overhaul). Any enemy that rams the player explodes,
+	 * without rewards, however much health it had left.
 	 */
 	private void manageEnemyCollisions() {
 		if (this.levelFinished)
@@ -1118,13 +1118,9 @@ public class GameScreen extends Screen {
 					|| !enemy.tryRam())
 				continue;
 			hitPlayer();
-			boolean lethal = enemy.getStats().health > 1
-					? enemy.takeDamage(1) : enemy.takeDamage(enemy.getHealth());
-			if (lethal) {
-				spawnSparkles(enemy);
-				enemy.destroy();
-				this.screenShake.trigger();
-			}
+			spawnSparkles(enemy);
+			enemy.destroy();
+			this.screenShake.trigger();
 		}
 	}
 
