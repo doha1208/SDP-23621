@@ -626,6 +626,10 @@ public final class DrawManager {
 				return "RF";
 			case BULLET_SPEED:
 				return "BS";
+			case SPREAD:
+				return "SP";
+			case PIERCE:
+				return "PI";
 			case SHIELD:
 				return "SH";
 			case FREEZE:
