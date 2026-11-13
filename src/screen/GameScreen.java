@@ -157,6 +157,9 @@ public class GameScreen extends Screen {
 		}
 	}
 
+	/** Scrolling background owned by this level, independent of the title. */
+	private final Starfield starfield;
+
 	/** Current game difficulty settings. */
 	private GameSettings gameSettings;
 	/** Current difficulty level number. */
@@ -317,6 +320,7 @@ public class GameScreen extends Screen {
 					  final int width, final int height, final int fps) {
 		super(width, height, fps);
 
+		this.starfield = new Starfield(width, height);
 		this.gameSettings = gameSettings;
 		this.bonusLife = bonusLife;
 		this.level = gameState.getLevel();
@@ -489,6 +493,9 @@ public class GameScreen extends Screen {
 			draw();
 			return;
 		}
+
+		// Keep scrolling during the countdown and transitions, but not pause.
+		this.starfield.update();
 
 		if (this.inputDelay.checkFinished() && !this.levelFinished) {
 
@@ -812,6 +819,7 @@ public class GameScreen extends Screen {
 	 */
 	private void draw() {
 		drawManager.initDrawing(this);
+		drawManager.drawStarfield(this, this.starfield);
 
 		if (!this.paused) {
 			// Screen shake: move game world only. AUTHORED BY: VFX TEAM (Effection)
