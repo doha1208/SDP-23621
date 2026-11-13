@@ -49,6 +49,14 @@ public class MeteorManager {
 		for (EnemyShip enemy : enemies)
 			if (!enemy.isDestroyed())
 				enemiesLeft++;
+		trySpawn(enemiesLeft, ship);
+	}
+
+	/**
+	 * Spawns a meteor on a random path above the player, if it is time,
+	 * given how many enemies are left (used by the wave-based enemies).
+	 */
+	public final void trySpawn(final int enemiesLeft, final Ship ship) {
 		long now = System.currentTimeMillis();
 		if (!this.spawner.shouldSpawn(now, enemiesLeft, this.meteor != null))
 			return;
