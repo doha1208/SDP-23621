@@ -142,6 +142,7 @@ public final class Core {
 		int returnCode = startLevel == 1 ? 1 : 2;
 		do {
 			gameState = new GameState(startLevel, 0, MAX_LIVES, 0, 0, 0);
+			entity.boss.BossRoster.newRun(); // New run, new boss order (Team Entities).
 
 			switch (returnCode) {
 			case 1:
