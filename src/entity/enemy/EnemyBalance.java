@@ -37,12 +37,12 @@ public final class EnemyBalance {
 
 	static {
 		Map<String, EnemyStats> defaults = new LinkedHashMap<String, EnemyStats>();
-		// health, points, speed, formationSize, fireInterval, bulletSpeed, pixelSize, spread
-		defaults.put("normal", new EnemyStats(1, 10, 2.0, 5, 60, 4.0, 2, 0));
-		defaults.put("shooter", new EnemyStats(1, 20, 1.5, 4, 90, 4.0, 2, 0));
-		defaults.put("bat", new EnemyStats(1, 30, 1.8, 3, 120, 3.5, 2, 0));
-		defaults.put("assassin", new EnemyStats(1, 40, 5.0, 1, 60, 4.0, 2, 0));
-		defaults.put("tank", new EnemyStats(8, 100, 0.6, 1, 150, 3.0, 4, 15));
+		// health, points, speed, formationSize, fireInterval, bulletSpeed, pixelSize, spread, threat
+		defaults.put("normal", new EnemyStats(1, 10, 2.0, 5, 60, 4.0, 2, 0, 0.2));
+		defaults.put("shooter", new EnemyStats(1, 20, 1.5, 4, 90, 4.0, 2, 0, 0.4));
+		defaults.put("bat", new EnemyStats(1, 30, 1.8, 3, 120, 3.5, 2, 0, 1.0));
+		defaults.put("assassin", new EnemyStats(1, 40, 5.0, 1, 60, 4.0, 2, 0, 2.0));
+		defaults.put("tank", new EnemyStats(8, 100, 0.6, 1, 150, 3.0, 4, 15, 4.0));
 		DEFAULT_STATS = Collections.unmodifiableMap(defaults);
 	}
 
@@ -180,7 +180,8 @@ public final class EnemyBalance {
 				positiveInt(settings, prefix + ".fireInterval", fallback.fireInterval),
 				positiveDouble(settings, prefix + ".bulletSpeed", fallback.bulletSpeed),
 				positiveInt(settings, prefix + ".pixelSize", fallback.pixelSize),
-				nonNegativeDouble(settings, prefix + ".spreadDegrees", fallback.spreadDegrees));
+				nonNegativeDouble(settings, prefix + ".spreadDegrees", fallback.spreadDegrees),
+				positiveDouble(settings, prefix + ".threat", fallback.threat));
 	}
 
 	private static String raw(final Properties settings, final String key) {
