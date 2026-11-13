@@ -4,6 +4,8 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.lang.reflect.*;
 import java.util.Arrays;
+import java.util.List;
+import java.nio.file.*;
 
 /** Headless behavioral checks; no game saves or purchases are loaded. */
 public final class DashVisualEffectTest {
@@ -58,9 +60,36 @@ public final class DashVisualEffectTest {
         panel.getActionMap().get("pause").actionPerformed(null); double now = (Double) value(panel, "now"); advance(panel, 50);
         check((Double) value(panel, "now") == now, "Pause freezes simulation");
         panel.getActionMap().get("reset").actionPerformed(null);
-        check((Double) value(panel, "x") == 130 && !(Boolean) value(panel, "paused"), "Reset restores preview");
+        check((Double) value(panel, "x") == 211 && !(Boolean) value(panel, "paused"), "Reset restores preview");
         for (int i = 0; i < 20; i++) { panel.getActionMap().get("dash").actionPerformed(null); advance(panel, 350); }
         check((Double) value(panel, "x") >= 40 && (Double) value(panel, "x") <= 382, "Repeated dashes stay visible");
+        String[] labels = {"Ship", "ShipFastMove", "ShipFastAttack", "ShipBigBullet", "ShipTwoWay"};
+        List<String> graphics = Files.readAllLines(Paths.get("res/graphics"));
+        for (int index = 0; index < labels.length; index++) {
+            panel.getActionMap().get("dash").actionPerformed(null); advance(panel, 70);
+            panel.getActionMap().get("ship-" + index).actionPerformed(null);
+            check((Integer) value(panel, "selected") == index, "Ship selection works");
+            check(((DashVisualEffect) value(panel, "effect")).getGhostCount() == 0,
+                    "Switching ships clears old trails");
+            boolean[][] mask = (boolean[][]) value(panel, "sprite");
+            StringBuilder bits = new StringBuilder();
+            for (boolean[] column : mask) for (boolean pixel : column) bits.append(pixel ? '1' : '0');
+            int label = graphics.indexOf("// " + labels[index] + " 13x8");
+            check(label >= 0 && bits.toString().equals(graphics.get(label + 1)), "Preview matches game sprite");
+            for (int facing : new int[]{-1, 1}) {
+                DashVisualEffect shipEffect = new DashVisualEffect();
+                shipEffect.update(0, 80, 10, true, facing, Color.WHITE);
+                BufferedImage rendered = draw(shipEffect, mask);
+                int col = facing > 0 ? 0 : 12;
+                while (!mask[col][4]) col += facing > 0 ? 1 : -1;
+                int edge = 80 + (facing > 0 ? col : col + 1) * 2;
+                check((rendered.getRGB(edge + 5 + (facing > 0 ? -1 : 0), 18) >>> 24) > 0,
+                        "Thrust touches actual hull in both directions");
+            }
+            panel.getActionMap().get("left").actionPerformed(null);
+            panel.getActionMap().get("dash").actionPerformed(null); advance(panel, 90);
+            check((Double) value(panel, "x") < 211, "Every ship can dash left from reset");
+        }
         System.out.println("DashVisualEffectTest: " + checks + " checks passed");
     }
 }
