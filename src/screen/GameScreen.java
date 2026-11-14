@@ -100,6 +100,10 @@ public class GameScreen extends Screen {
 	private static final int ACHIEVEMENT_POPUP_SLIDE_OUT = 350;
 	/** Height of the interface separation line. */
 	private static final int SEPARATION_LINE_HEIGHT = 40;
+	/** Gap between the ship's starting row and the bottom of the screen. */
+	private static final int SHIP_BOTTOM_GAP = 30;
+	/** How high the ship may fly, as a fraction of the screen height. */
+	private static final double SHIP_TOP_LIMIT = 0.5;
 	/** Lives at or below this value start the glitch. */
 	private static final int LOW_HEALTH_LIVES = 1;
 	/** Low-life effect duration (ms). */
@@ -354,7 +358,7 @@ public class GameScreen extends Screen {
 		SoundManager.getInstance().playBgm(Sound.BGM_GAME);
 
 		// Initialize the player in both boss and normal stages.
-		this.ship = new Ship(this.width / 2, this.height - 30,
+		this.ship = new Ship(this.width / 2, this.height - SHIP_BOTTOM_GAP,
 				Core.getSelectedShipType());
 
 		// Distinct mid-boss and final boss encounters.
@@ -516,6 +520,7 @@ public class GameScreen extends Screen {
 				if (moveLeft && !isLeftBorder) {
 					this.ship.moveLeft();
 				}
+				moveShipVertically();
 				if (inputManager.isKeyDown(KeyEvent.VK_SPACE)) {
 					// Count bullets, not trigger pulls: Two Way fires two at
 					// once, and accuracy is kills per bullet.
@@ -743,6 +748,20 @@ public class GameScreen extends Screen {
 		if (fadeElapsed > 0)
 			drawManager.drawFadeOverlay(this, (int) (fadeElapsed * 255
 					/ GAME_OVER_FADE_DURATION));
+	}
+
+	/**
+	 * Moves the ship up with W or the up arrow and down with S or the down
+	 * arrow. It stays between the middle of the screen and the row it starts
+	 * on, which is also where item drops land.
+	 */
+	private void moveShipVertically() {
+		if (inputManager.isKeyDown(KeyEvent.VK_UP)
+				|| inputManager.isKeyDown(KeyEvent.VK_W))
+			this.ship.moveUp((int) (this.height * SHIP_TOP_LIMIT));
+		if (inputManager.isKeyDown(KeyEvent.VK_DOWN)
+				|| inputManager.isKeyDown(KeyEvent.VK_S))
+			this.ship.moveDown(this.height - SHIP_BOTTOM_GAP);
 	}
 
 	/**
