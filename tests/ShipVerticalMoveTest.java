@@ -2,6 +2,9 @@ import java.awt.Color;
 import java.awt.event.KeyEvent;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import engine.Core;
 import engine.GameSettings;
 import engine.GameState;
@@ -35,6 +38,25 @@ public final class ShipVerticalMoveTest {
         Method move = GameScreen.class.getDeclaredMethod("moveShipVertically");
         move.setAccessible(true);
         for (int i = 0; i < count; i++) move.invoke(screen);
+    }
+
+    /** Starts a level with move.topLimit set to the value, holds W, returns the ship's y. */
+    private static int highestWith(String topLimit) throws Exception {
+        Path file = Files.createTempFile("ship", ".properties");
+        Files.write(file, ("move.topLimit=" + topLimit + "\n").getBytes(StandardCharsets.UTF_8));
+        System.setProperty("invaders.ship", file.toString());
+        try {
+            GameScreen screen = new GameScreen(new GameState(1, 0, 3, 0, 0, 0),
+                new GameSettings(5, 2, 60, 2000), false, WIDTH, HEIGHT, 60);
+            screen.initialize();
+            press(KeyEvent.VK_W, true);
+            frames(screen, 500);
+            press(KeyEvent.VK_W, false);
+            return ((Ship) get(screen, GameScreen.class, "ship")).getPositionY();
+        } finally {
+            System.clearProperty("invaders.ship");
+            Files.delete(file);
+        }
     }
 
     public static void main(String[] args) throws Exception {
@@ -91,6 +113,13 @@ public final class ShipVerticalMoveTest {
         for (int frame = 0; frame < 20; frame++)
             trail.record(100, startY, Color.GREEN);
         check(!trail.isMoving(), "Ghost trail stays off while the ship is still");
+
+        // The top limit comes from res/ship.properties (move.topLimit).
+        check(highestWith("0.25") == HEIGHT / 4, "move.topLimit=0.25 lets the ship reach a quarter from the top");
+        check(highestWith("0") == 40, "move.topLimit=0 stops at the line under the score bar");
+        check(highestWith("1") == startY, "move.topLimit=1 keeps the ship on its starting row");
+        check(highestWith("abc") == top, "An invalid value falls back to the middle");
+        check(highestWith("1.5") == top, "An out-of-range value falls back to the middle");
 
         System.out.println("ShipVerticalMoveTest: " + checks + " checks passed");
     }
