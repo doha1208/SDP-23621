@@ -102,8 +102,19 @@ public final class GhostTrail {
 		if (this.count < 2)
 			return false;
 		int oldest = slotFramesAgo(Math.min(this.count - 1, MOVE_FRAMES));
-		return Math.abs(this.historyX[this.newest]
-				- this.historyX[oldest]) >= MIN_MOVE;
+		return movedSince(oldest) >= MIN_MOVE;
+	}
+
+	/**
+	 * @param slot
+	 *            Ring buffer slot of an earlier frame.
+	 * @return Pixels the ship moved since then, along whichever axis it
+	 *         moved further, so moving up or down shows ghosts too.
+	 */
+	private int movedSince(final int slot) {
+		return Math.max(
+				Math.abs(this.historyX[this.newest] - this.historyX[slot]),
+				Math.abs(this.historyY[this.newest] - this.historyY[slot]));
 	}
 
 	/** Forgets every remembered position, so no ghosts show. */
@@ -208,8 +219,7 @@ public final class GhostTrail {
 		int older = slotFramesAgo(SPEED_FRAMES);
 		if (older < 0)
 			return 1;
-		double speed = Math.abs(this.historyX[this.newest]
-				- this.historyX[older]) / (double) SPEED_FRAMES;
+		double speed = movedSince(older) / (double) SPEED_FRAMES;
 		return MIN_STRENGTH
 				+ (1 - MIN_STRENGTH) * Math.min(1, speed / FULL_SPEED);
 	}
