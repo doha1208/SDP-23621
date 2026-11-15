@@ -24,10 +24,14 @@ final class ItemBalance {
 
     final long shieldDurationMillis;
     final int shieldCharges;
-    /** First-pickup bonus (rapid fire: extra shots per second, bullet speed: extra pixels per frame), max stacks, drop weight multiplier per stack. */
+    /**
+     * Run-wide stacks: first-pickup bonus (rapid fire: extra share of the base fire rate,
+     * bullet speed: extra pixels per frame per stack), max stacks, drop weight multiplier per stack.
+     * Spread adds one bullet lane per stack and pierce one extra enemy per stack.
+     */
     final double rapidFireBonus, bulletSpeedBonus;
-    final int rapidFireMaxStacks, bulletSpeedMaxStacks;
-    final double rapidFireDropDecay, bulletSpeedDropDecay;
+    final int rapidFireMaxStacks, bulletSpeedMaxStacks, spreadMaxStacks, pierceMaxStacks;
+    final double rapidFireDropDecay, bulletSpeedDropDecay, spreadDropDecay, pierceDropDecay;
     final long freezeDurationMillis;
     final long boostDurationMillis, scoreBoostDurationMillis;
     final double boostMultiplier, scoreBoostMultiplier;
@@ -77,12 +81,16 @@ final class ItemBalance {
     ItemBalance(Properties settings) {
         shieldDurationMillis = positiveLong(settings, "shield.durationMillis", 8_000L);
         shieldCharges = positiveInt(settings, "shield.charges", 1);
-        rapidFireBonus = positiveDouble(settings, "rapidFire.bonus", 0.5);
+        rapidFireBonus = positiveDouble(settings, "rapidFire.bonus", 0.35);
         rapidFireMaxStacks = positiveInt(settings, "rapidFire.maxStacks", 6);
         rapidFireDropDecay = probability(settings, "rapidFire.dropDecay", 0.7);
-        bulletSpeedBonus = positiveDouble(settings, "bulletSpeed.bonus", 1.5);
-        bulletSpeedMaxStacks = positiveInt(settings, "bulletSpeed.maxStacks", 6);
+        bulletSpeedBonus = positiveDouble(settings, "bulletSpeed.bonus", 1);
+        bulletSpeedMaxStacks = positiveInt(settings, "bulletSpeed.maxStacks", 3);
         bulletSpeedDropDecay = probability(settings, "bulletSpeed.dropDecay", 0.7);
+        spreadMaxStacks = positiveInt(settings, "spread.maxStacks", 4);
+        spreadDropDecay = probability(settings, "spread.dropDecay", 0.7);
+        pierceMaxStacks = positiveInt(settings, "pierce.maxStacks", 3);
+        pierceDropDecay = probability(settings, "pierce.dropDecay", 0.7);
         freezeDurationMillis = positiveLong(settings, "freeze.durationMillis", 4_000L);
         boostDurationMillis = positiveLong(settings, "boost.durationMillis", 7_000L);
         boostMultiplier = multiplier(settings, "boost.multiplier", 1.5);
@@ -101,6 +109,8 @@ final class ItemBalance {
         weights.put("shield", weight(settings, "drop.weight.shield"));
         weights.put("rapid_fire", weight(settings, "drop.weight.rapidFire"));
         weights.put("bullet_speed", weight(settings, "drop.weight.bulletSpeed"));
+        weights.put("spread", weight(settings, "drop.weight.spread"));
+        weights.put("pierce", weight(settings, "drop.weight.pierce"));
         weights.put("freeze", weight(settings, "drop.weight.freeze"));
         weights.put("boost", weight(settings, "drop.weight.boost"));
         weights.put("score_boost", weight(settings, "drop.weight.scoreBoost"));

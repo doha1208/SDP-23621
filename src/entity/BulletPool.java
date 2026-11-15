@@ -76,6 +76,7 @@ public final class BulletPool {
 		bullet.setPositionY(positionY);
 		bullet.setSpeed(speed);
 		bullet.setSpeedX(0);
+		bullet.resetHits(); // pierce state (Team CS)
 		bullet.setSprite();
 	}
 

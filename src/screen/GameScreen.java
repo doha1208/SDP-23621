@@ -1023,7 +1023,8 @@ public class GameScreen extends Screen {
 					boolean piercing = bullet.getWidth() > Bullet.DEFAULT_WIDTH;
 					for (Enemy enemy : this.enemyManager) {
 						if (enemy.isHittable()
-								&& checkCollision(bullet, enemy)) {
+								&& checkCollision(bullet, enemy)
+								&& bullet.registerHit(enemy)) { // Pierce item (Team CS)
 							recyclable.add(bullet);
 							// Surviving hits consume the bullet without awarding kill rewards.
 							if (!enemy.takeDamage(1)) {
@@ -1061,6 +1062,7 @@ public class GameScreen extends Screen {
 					recyclable.add(bullet);
 			}
 		}
+		recyclable.removeIf(Bullet::piercesThrough); // Pierce item (Team CS)
 		this.bullets.removeAll(recyclable);
 		BulletPool.recycle(recyclable);
 		manageEnemyCollisions();
