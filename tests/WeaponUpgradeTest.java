@@ -55,7 +55,7 @@ public final class WeaponUpgradeTest {
     /** A new run with one active level for the given ship. */
     private static ItemSystem newRun(Ship ship) {
         ItemSystem items = ItemSystem.forLevel(1);
-        items.beginLevel(1, 448, ship, HOOKS);
+        items.beginLevel(1, 448, 520, ship, HOOKS);
         return items;
     }
 
