@@ -1,5 +1,10 @@
 package entity;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -55,6 +60,24 @@ public final class ShipStatsTest {
         expectStats(ShipType.TWO_WAY, 1, 1000, 6, 2, 6, 10);
         expectStats(ShipType.FAST_ATTACK, 2, 375, 6, 1, 6, 10);
         expectStats(ShipType.BIG_BULLET, 2, 1000, 6, 1, 18, 30);
+
+        // The file is really read: a value that differs from the default
+        // reaches the ship type key, and every shipped key matches a getter.
+        try {
+            Path file = Files.createTempFile("ship-stats", ".properties");
+            Files.write(file, "fast_move.speed=9".getBytes(StandardCharsets.UTF_8));
+            Properties custom = ShipStats.load(file);
+            Files.delete(file);
+            check(ShipStats.positive(custom, ShipStats.key("FAST_MOVE", "speed"), 4) == 9,
+                "Value from the file reaches FAST_MOVE.speed");
+        } catch (IOException e) {
+            throw new AssertionError("Cannot write a temp properties file", e);
+        }
+        Properties shipped = ShipStats.load(Paths.get("res", ShipStats.FILE_NAME));
+        check(shipped.size() == ShipType.values().length * 6, "Shipped file has six stats per ship");
+        for (ShipType type : ShipType.values())
+            check(Integer.parseInt(shipped.getProperty(ShipStats.key(type.name(), "bulletWidth")))
+                == type.getBulletWidth(), type + " bullet width comes from the file key");
 
         // Parsing: only whole numbers above 0 replace the default.
         Properties settings = new Properties();

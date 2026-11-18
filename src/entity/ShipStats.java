@@ -31,7 +31,7 @@ final class ShipStats {
 	private static final Logger LOGGER = Logger.getLogger("Core");
 
 	/** Settings read once, when the first ship type is built. */
-	private static final Properties SETTINGS = load();
+	private static final Properties SETTINGS = load(Paths.get("res", FILE_NAME));
 
 	private ShipStats() {
 	}
@@ -48,8 +48,12 @@ final class ShipStats {
 	 * @return The configured value, or the fallback.
 	 */
 	static int get(final String ship, final String stat, final int fallback) {
-		return positive(SETTINGS, ship.toLowerCase(Locale.ROOT) + "." + stat,
-				fallback);
+		return positive(SETTINGS, key(ship, stat), fallback);
+	}
+
+	/** Property key of a stat: FAST_MOVE + speed is fast_move.speed. */
+	static String key(final String ship, final String stat) {
+		return ship.toLowerCase(Locale.ROOT) + "." + stat;
 	}
 
 	/**
@@ -81,9 +85,15 @@ final class ShipStats {
 		return fallback;
 	}
 
-	private static Properties load() {
+	/**
+	 * Reads the file at path, or the classpath copy when it does not exist.
+	 *
+	 * @param path
+	 *            File to read.
+	 * @return The settings; empty if neither can be read.
+	 */
+	static Properties load(final Path path) {
 		Properties settings = new Properties();
-		Path path = Paths.get("res", FILE_NAME);
 		try {
 			if (Files.exists(path)) {
 				try (Reader reader = Files.newBufferedReader(path,
