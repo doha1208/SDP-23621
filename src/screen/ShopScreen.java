@@ -1049,6 +1049,9 @@ public class ShopScreen extends Screen {
 				lines.add("SHOTS PER SEC " + String.format("%.2f",
 						type.getBulletsPerShot() * 1000.0
 								/ type.getShootingInterval()));
+				lines.add("BULLET SPEED " + type.getBulletSpeed()
+						+ "  |  SIZE " + type.getBulletWidth() + "x"
+						+ type.getBulletHeight());
 				break;
 			}
 			case SHAPE: {
