@@ -55,7 +55,8 @@ public class Ship extends Entity {
 		private final SpriteType idleSprite;
 
 		/**
-		 * Constructor, establishes the properties of the ship type.
+		 * Constructor, establishes the properties of the ship type. The
+		 * numbers are defaults; res/ship-stats.properties can override them.
 		 *
 		 * @param speed
 		 *            Movement of the ship for each unit of time.
@@ -76,12 +77,16 @@ public class Ship extends Entity {
 				 final int bulletSpeed, final int bulletsPerShot,
 				 final int bulletWidth, final int bulletHeight,
 				 final SpriteType idleSprite) {
-			this.speed = speed;
-			this.shootingInterval = shootingInterval;
-			this.bulletSpeed = bulletSpeed;
-			this.bulletsPerShot = bulletsPerShot;
-			this.bulletWidth = bulletWidth;
-			this.bulletHeight = bulletHeight;
+			// res/ship-stats.properties can override every number.
+			this.speed = ShipStats.get(name(), "speed", speed);
+			this.shootingInterval = ShipStats.get(name(), "shootingInterval",
+					shootingInterval);
+			this.bulletSpeed = ShipStats.get(name(), "bulletSpeed", bulletSpeed);
+			this.bulletsPerShot = ShipStats.get(name(), "bulletsPerShot",
+					bulletsPerShot);
+			this.bulletWidth = ShipStats.get(name(), "bulletWidth", bulletWidth);
+			this.bulletHeight = ShipStats.get(name(), "bulletHeight",
+					bulletHeight);
 			this.idleSprite = idleSprite;
 		}
 
