@@ -15,37 +15,42 @@ import engine.DrawManager.SpriteType;
  */
 public class Ship extends Entity {
 
-	/** Speed of the bullets shot by the ship. */
-	private static final int BULLET_SPEED = -6;
-	/** Distance in px from the ship's center to each barrel of a two-way ship. */
+	/** Half the distance in px between two neighbouring barrels. */
 	private static final int BARREL_OFFSET = 8;
 	/** Sideways speed added per step between spread lanes, in px per frame (Team CS). */
 	private static final int SPREAD_STEP = 1;
 
 	/**
-	 * Types of player ships. Each type has its own speed, shooting interval
-	 * and sprite.
-	 */
-	/**
-	 * Types of player ships. Each type has its own speed, shooting interval
-	 * and sprite.
+	 * Types of player ships. Each type has its own movement speed, shooting
+	 * interval, bullet speed, bullets per shot, bullet size and sprite.
 	 */
 	public enum ShipType {
 		/** Standard ship. */
-		STANDARD(2, 750, SpriteType.Ship),
+		STANDARD(2, 750, 6, 1, Bullet.DEFAULT_WIDTH, Bullet.DEFAULT_HEIGHT,
+				SpriteType.Ship),
 		/** Ship with a high movement speed. */
-		FAST_MOVE(4, 750, SpriteType.ShipFastMove),
+		FAST_MOVE(4, 750, 6, 1, Bullet.DEFAULT_WIDTH, Bullet.DEFAULT_HEIGHT,
+				SpriteType.ShipFastMove),
 		/** Ship that shoots a bullet from each of its two barrels. */
-		TWO_WAY(1, 1000, SpriteType.ShipTwoWay),
+		TWO_WAY(1, 1000, 6, 2, Bullet.DEFAULT_WIDTH, Bullet.DEFAULT_HEIGHT,
+				SpriteType.ShipTwoWay),
 		/** Ship with a high rate of fire. */
-		FAST_ATTACK(2, 375, SpriteType.ShipFastAttack),
-		/** Ship with a large projectile. */
-		BIG_BULLET(2, 1000, SpriteType.ShipBigBullet);
+		FAST_ATTACK(2, 375, 6, 1, Bullet.DEFAULT_WIDTH, Bullet.DEFAULT_HEIGHT,
+				SpriteType.ShipFastAttack),
+		/** Ship with a large projectile (9x15 sprite pixels, scaled by 2). */
+		BIG_BULLET(2, 1000, 6, 1, 9 * 2, 15 * 2, SpriteType.ShipBigBullet);
 
 		/** Movement of the ship for each unit of time. */
 		private final int speed;
 		/** Time between shots, in milliseconds. */
 		private final int shootingInterval;
+		/** Upward speed of the ship's bullets, in px per frame. */
+		private final int bulletSpeed;
+		/** Bullets fired per shot, one from each barrel. */
+		private final int bulletsPerShot;
+		/** Size of each bullet in px. */
+		private final int bulletWidth;
+		private final int bulletHeight;
 		/** Sprite of the ship while it is not destroyed. */
 		private final SpriteType idleSprite;
 
@@ -56,13 +61,27 @@ public class Ship extends Entity {
 		 *            Movement of the ship for each unit of time.
 		 * @param shootingInterval
 		 *            Time between shots, in milliseconds.
+		 * @param bulletSpeed
+		 *            Upward speed of the bullets, in px per frame.
+		 * @param bulletsPerShot
+		 *            Bullets fired per shot.
+		 * @param bulletWidth
+		 *            Width of each bullet in px.
+		 * @param bulletHeight
+		 *            Height of each bullet in px.
 		 * @param idleSprite
 		 *            Sprite of the ship while it is not destroyed.
 		 */
 		ShipType(final int speed, final int shootingInterval,
+				 final int bulletSpeed, final int bulletsPerShot,
+				 final int bulletWidth, final int bulletHeight,
 				 final SpriteType idleSprite) {
 			this.speed = speed;
 			this.shootingInterval = shootingInterval;
+			this.bulletSpeed = bulletSpeed;
+			this.bulletsPerShot = bulletsPerShot;
+			this.bulletWidth = bulletWidth;
+			this.bulletHeight = bulletHeight;
 			this.idleSprite = idleSprite;
 		}
 
@@ -81,9 +100,24 @@ public class Ship extends Entity {
 			return this.shootingInterval;
 		}
 
+		/** @return Upward speed of the bullets, in px per frame. */
+		public int getBulletSpeed() {
+			return this.bulletSpeed;
+		}
+
 		/** @return Bullets fired per shot. */
 		public int getBulletsPerShot() {
-			return this == TWO_WAY ? 2 : 1;
+			return this.bulletsPerShot;
+		}
+
+		/** @return Width of each bullet in px. */
+		public int getBulletWidth() {
+			return this.bulletWidth;
+		}
+
+		/** @return Height of each bullet in px. */
+		public int getBulletHeight() {
+			return this.bulletHeight;
 		}
 
 		/** @return Sprite of the ship while it is not destroyed. */
@@ -187,8 +221,8 @@ public class Ship extends Entity {
 	}
 
 	/**
-	 * Shoots a bullet upwards. A two-way ship shoots one bullet from each of
-	 * its two barrels instead. With the spread item every lane of the fan
+	 * Shoots upwards: each of the type's barrels fires one bullet with the
+	 * type's bullet speed and size. With the spread item every lane of the fan
 	 * fires the ship's own shot, and the pierce item lets each bullet pass
 	 * through extra enemies (Team CS).
 	 *
@@ -200,22 +234,19 @@ public class Ship extends Entity {
 		if (this.shootingCooldown.checkFinished()) {
 			this.shootingCooldown.reset();
 			final int centerX = positionX + this.width / 2;
-			final int bulletSpeed = BULLET_SPEED
-					- (int) Math.round(this.itemBulletSpeedBonus);
+			final int bulletSpeed = -(this.type.bulletSpeed
+					+ (int) Math.round(this.itemBulletSpeedBonus));
+			final int barrels = this.type.bulletsPerShot;
 			for (int lane : spreadLanes(1 + this.itemSpreadCount)) {
 				final int speedX = lane * SPREAD_STEP;
-				if (this.type == ShipType.TWO_WAY) {
-					addBullet(bullets, BulletPool.getBullet(centerX
-							- BARREL_OFFSET, positionY, bulletSpeed), speedX);
-					addBullet(bullets, BulletPool.getBullet(centerX
-							+ BARREL_OFFSET, positionY, bulletSpeed), speedX);
-				} else if (this.type == ShipType.BIG_BULLET) {
-					// Spawns a larger projectile (e.g., 9x15 scaled by 2)
-					addBullet(bullets, BulletPool.getCustomBullet(centerX,
-							positionY, bulletSpeed, 9 * 2, 15 * 2), speedX);
-				} else {
-					addBullet(bullets, BulletPool.getBullet(centerX,
-							positionY, bulletSpeed), speedX);
+				for (int barrel = 0; barrel < barrels; barrel++) {
+					// Barrels sit symmetrically around the center: one at
+					// the center, two at -8/+8, three at -16/0/+16, ...
+					final int x = centerX
+							+ (2 * barrel - (barrels - 1)) * BARREL_OFFSET;
+					addBullet(bullets, BulletPool.getCustomBullet(x,
+							positionY, bulletSpeed, this.type.bulletWidth,
+							this.type.bulletHeight), speedX);
 				}
 			}
 			return true;
