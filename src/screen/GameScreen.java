@@ -274,6 +274,12 @@ public class GameScreen extends Screen {
 	private boolean[] itemSlotKeysHeld = new boolean[9];
 	/** Dash dodge of the ship (Team CS). */
 	private ShipDash dash;
+	/** Dash charge bar: gap below the ship and height, in pixels. */
+	private static final int DASH_BAR_GAP = 3;
+	private static final int DASH_BAR_HEIGHT = 2;
+	/** Dash charge bar colours: empty part, filled part. */
+	private static final Color DASH_BAR_EMPTY = new Color(60, 60, 60);
+	private static final Color DASH_BAR_FILL = new Color(170, 190, 200);
 	/** Dash key held last frame, so holding it dashes only once. */
 	private boolean dashKeyHeld;
 	/** Afterimages and thrust while the ship dashes (Team CS). */
@@ -859,6 +865,8 @@ public class GameScreen extends Screen {
 			if (!warping)
 				drawManager.drawEntity(this.ship, this.ship.getPositionX(),
 						this.ship.getPositionY());
+			if (!warping)
+				drawDashCharge(); // Team CS
 			drawManager.drawWarpIn(this.warpIn, this.ship,
 					this.skin.colorAt(System.currentTimeMillis()),
 					SEPARATION_LINE_HEIGHT);
@@ -1330,6 +1338,22 @@ public class GameScreen extends Screen {
 				this.ship.getPositionX(), this.ship.getPositionY(),
 				this.dash.isDashing(), this.dash.getDirection(),
 				this.ship.getColor());
+	}
+
+	/**
+	 * Draws a thin bar under the ship while the dash recharges (Team CS).
+	 * It fills up and disappears once the next dash is ready.
+	 */
+	private void drawDashCharge() {
+		double charge = this.dash.getCharge();
+		if (charge >= 1 || this.dash.isDashing() || this.ship.isDestroyed())
+			return;
+		int x = this.ship.getPositionX();
+		int y = this.ship.getPositionY() + this.ship.getHeight() + DASH_BAR_GAP;
+		int width = this.ship.getWidth();
+		drawManager.fillBox(x, y, width, DASH_BAR_HEIGHT, DASH_BAR_EMPTY);
+		drawManager.fillBox(x, y, (int) Math.round(width * charge),
+				DASH_BAR_HEIGHT, DASH_BAR_FILL);
 	}
 
 	/**

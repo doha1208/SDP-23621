@@ -1,4 +1,5 @@
 import java.awt.event.KeyEvent;
+import java.awt.image.BufferedImage;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -8,6 +9,7 @@ import javax.swing.JPanel;
 
 import engine.Core;
 import engine.DashVisualEffect;
+import engine.DrawManager;
 import engine.GameSettings;
 import engine.GameState;
 import entity.Bullet;
@@ -67,6 +69,13 @@ public final class DashDodgeTest {
         enemyBullets.add(aimed);
         bullets.add(new Bullet(x - 3, y - 5, 4));
         return aimed;
+    }
+
+    /** A fresh image that DrawManager draws into. */
+    private static BufferedImage canvas() throws Exception {
+        BufferedImage image = new BufferedImage(448, 520, BufferedImage.TYPE_INT_RGB);
+        field(DrawManager.class, "backBufferGraphics").set(null, image.getGraphics());
+        return image;
     }
 
     /** Runs frames until the dash would be ready again. */
@@ -133,6 +142,20 @@ public final class DashDodgeTest {
         for (int i = 0; i < 10; i++) call(game, "updateDashEffect", new Class[] {});
         check(look.getGhostCount() == 0, "Afterimages fade after the dash");
         shift(false);
+
+        // A thin bar under the ship fills while the dash recharges, then goes away.
+        for (int i = 0; i < 45; i++) frame(game, false, false); // half charged
+        int barY = ship.getPositionY() + ship.getHeight() + 3;
+        BufferedImage image = canvas();
+        call(game, "drawDashCharge", new Class[] {});
+        int filled = image.getRGB(ship.getPositionX(), barY);
+        int empty = image.getRGB(ship.getPositionX() + ship.getWidth() - 1, barY);
+        check((filled & 0xFFFFFF) != 0 && (empty & 0xFFFFFF) != 0 && filled != empty,
+                "Charge bar shows a filled and an empty part");
+        recharge(game);
+        image = canvas();
+        call(game, "drawDashCharge", new Class[] {});
+        check((image.getRGB(ship.getPositionX(), barY) & 0xFFFFFF) == 0, "No bar once the dash is ready");
 
         // While dashing, bullets on the ship fly on and take no life.
         recharge(game);
