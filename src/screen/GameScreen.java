@@ -49,6 +49,7 @@ import entity.enemy.LevelDirector;
 import level.LevelDirectors;
 import entity.Particle;
 import entity.Ship;
+import entity.ShipDash;
 import item.ItemSystem;
 import item.ItemAPI.EventType;
 import item.ItemAPI.ItemEvent;
@@ -271,6 +272,10 @@ public class GameScreen extends Screen {
 	private ItemSystem items;
 	/** Item slot keys (1-9) held last frame, so holding a key uses it once. */
 	private boolean[] itemSlotKeysHeld = new boolean[9];
+	/** Dash dodge of the ship (Team CS). */
+	private ShipDash dash;
+	/** Dash key held last frame, so holding it dashes only once. */
+	private boolean dashKeyHeld;
 	/** Skin chosen in Customize; animated skins change colour each frame (GoG). */
 	private shop.Skin skin;
 	/** Whether gameplay is currently paused. */
@@ -356,6 +361,7 @@ public class GameScreen extends Screen {
 		// Initialize the player in both boss and normal stages.
 		this.ship = new Ship(this.width / 2, this.height - 30,
 				Core.getSelectedShipType());
+		this.dash = new ShipDash(); // Team CS
 
 		// Distinct mid-boss and final boss encounters.
 		this.enemyManager = new EnemyManager(this.width, this.height,
@@ -510,10 +516,11 @@ public class GameScreen extends Screen {
 				boolean isLeftBorder = this.ship.getPositionX()
 						- this.ship.getSpeed() < 1;
 
-				if (moveRight && !isRightBorder) {
+				boolean dashing = updateDash(moveLeft, moveRight); // Team CS
+				if (moveRight && !isRightBorder && !dashing) {
 					this.ship.moveRight();
 				}
-				if (moveLeft && !isLeftBorder) {
+				if (moveLeft && !isLeftBorder && !dashing) {
 					this.ship.moveLeft();
 				}
 				if (inputManager.isKeyDown(KeyEvent.VK_SPACE)) {
@@ -1267,6 +1274,34 @@ public class GameScreen extends Screen {
 				+ CurrencyManager.getInstance().getCoins());
 		CoinPool.recycle(this.coins);
 		this.coins.clear();
+	}
+
+	/**
+	 * Dash dodge (Team CS): Shift dashes the way the ship last moved. While
+	 * the dash lasts it moves the ship instead of the arrow keys, and stops
+	 * at the screen sides.
+	 *
+	 * @param moveLeft
+	 *            True if a left key is held.
+	 * @param moveRight
+	 *            True if a right key is held.
+	 * @return True if the dash moved the ship this frame.
+	 */
+	private boolean updateDash(final boolean moveLeft,
+			final boolean moveRight) {
+		this.dash.face((moveRight ? 1 : 0) - (moveLeft ? 1 : 0));
+		boolean dashKey = inputManager.isKeyDown(KeyEvent.VK_SHIFT);
+		if (dashKey && !this.dashKeyHeld)
+			this.dash.start();
+		this.dashKeyHeld = dashKey;
+		if (!this.dash.isDashing()) {
+			this.dash.update(); // recharge
+			return false;
+		}
+		int x = this.ship.getPositionX() + this.dash.update();
+		int maxX = this.width - 1 - this.ship.getWidth();
+		this.ship.setPositionX(Math.max(1, Math.min(x, maxX)));
+		return true;
 	}
 
 	/**
