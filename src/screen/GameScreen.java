@@ -1016,7 +1016,9 @@ public class GameScreen extends Screen {
 		Set<Bullet> recyclable = new HashSet<Bullet>();
 		for (Bullet bullet : this.bullets) {
 			if (bullet.getSpeed() > 0) {
-				if (checkCollision(bullet, this.ship) && !this.levelFinished) {
+				// A dashing ship dodges: the bullet flies on (Team CS).
+				if (checkCollision(bullet, this.ship) && !this.levelFinished
+						&& !this.dash.isDashing()) {
 					recyclable.add(bullet);
 					hitPlayer();
 				}
@@ -1111,10 +1113,11 @@ public class GameScreen extends Screen {
 	/**
 	 * Enemy bullets, enemy bodies and the boss hitting the player (Team
 	 * Entities enemy overhaul). Any enemy that rams the player explodes,
-	 * without rewards, however much health it had left.
+	 * without rewards, however much health it had left. A dashing ship
+	 * dodges all of it: bullets fly on and enemies pass by (Team CS).
 	 */
 	private void manageEnemyCollisions() {
-		if (this.levelFinished)
+		if (this.levelFinished || this.dash.isDashing())
 			return;
 		Iterator<EnemyBullet> enemyBullets = this.enemyManager.getBullets()
 				.iterator();

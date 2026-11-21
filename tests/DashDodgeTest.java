@@ -1,19 +1,25 @@
 import java.awt.event.KeyEvent;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Set;
 
 import javax.swing.JPanel;
 
 import engine.Core;
 import engine.GameSettings;
 import engine.GameState;
+import entity.Bullet;
 import entity.Ship;
+import entity.enemy.EnemyBullet;
+import entity.enemy.EnemyManager;
 import screen.GameScreen;
 
 /**
  * Dash dodge inside a real GameScreen (Team CS): Shift dashes the way the
- * ship last moved, once per press, and stops at the screen sides. Run from
- * the project root, headless.
+ * ship last moved, once per press, and stops at the screen sides; while
+ * it dashes, bullets do not hit the ship. Run from the project root,
+ * headless.
  */
 public final class DashDodgeTest {
     private static final int DASH_FRAMES = 11;
@@ -50,6 +56,16 @@ public final class DashDodgeTest {
     private static boolean frame(GameScreen game, boolean left, boolean right) throws Exception {
         return (Boolean) call(game, "updateDash", new Class[] { boolean.class, boolean.class },
                 left, right);
+    }
+
+    /** Puts an enemy bullet and an old-style falling bullet on the ship's center. */
+    private static EnemyBullet onShip(Ship ship, List<EnemyBullet> enemyBullets, Set<Bullet> bullets) {
+        int x = ship.getPositionX() + ship.getWidth() / 2;
+        int y = ship.getPositionY() + ship.getHeight() / 2;
+        EnemyBullet aimed = new EnemyBullet(x, y, 0, 3);
+        enemyBullets.add(aimed);
+        bullets.add(new Bullet(x - 3, y - 5, 4));
+        return aimed;
     }
 
     /** Runs frames until the dash would be ready again. */
@@ -100,6 +116,32 @@ public final class DashDodgeTest {
         frame(game, false, true);
         while (frame(game, false, true)) { }
         check(ship.getPositionX() == 448 - 1 - ship.getWidth(), "Dash stops at the right side");
+        shift(false);
+
+        // While dashing, bullets on the ship fly on and take no life.
+        recharge(game);
+        ship.setPositionX(200);
+        int lives = (Integer) field(GameScreen.class, "lives").get(game);
+        List<EnemyBullet> enemyBullets =
+                ((EnemyManager) field(GameScreen.class, "enemyManager").get(game)).getBullets();
+        @SuppressWarnings("unchecked")
+        Set<Bullet> bullets = (Set<Bullet>) field(GameScreen.class, "bullets").get(game);
+        shift(true);
+        check(frame(game, false, false), "Dash started for the dodge check");
+        EnemyBullet aimed = onShip(ship, enemyBullets, bullets);
+        call(game, "manageCollisions", new Class[] {});
+        check((Integer) field(GameScreen.class, "lives").get(game) == lives, "Dash dodges bullets");
+        check(!ship.isDestroyed(), "Ship is not destroyed while dashing");
+        check(enemyBullets.contains(aimed) && bullets.size() == 1, "Dodged bullets fly on");
+
+        // Once the dash ends, the same kind of bullet hits again.
+        while (frame(game, false, false)) { }
+        enemyBullets.clear();
+        bullets.clear();
+        onShip(ship, enemyBullets, bullets);
+        call(game, "manageCollisions", new Class[] {});
+        check((Integer) field(GameScreen.class, "lives").get(game) == lives - 1, "Hit lands after the dash");
+        check(ship.isDestroyed(), "Ship explodes after the dash");
         shift(false);
 
         System.out.println("PASS: " + checks + " checks");
