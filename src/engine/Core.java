@@ -138,6 +138,8 @@ public final class Core {
 		int startLevel = Integer.getInteger("game.startLevel", 1);
 		if (startLevel < 1 || startLevel > NUM_LEVELS)
 			startLevel = 1;
+		// Menu play is one timed run. Non-first stages remain diagnostic entry points.
+		boolean timedRun = startLevel == 1;
 
 		int returnCode = startLevel == 1 ? 1 : 2;
 		do {
@@ -171,13 +173,15 @@ public final class Core {
 					
 					currentScreen = new GameScreen(gameState,
 							gameSettings.get(gameState.getLevel() - 1),
-							bonusLife, width, height, FPS);
+							bonusLife, width, height, FPS, timedRun);
 					LOGGER.info("Starting " + WIDTH + "x" + HEIGHT
 							+ " game screen at " + FPS + " fps.");
 					frame.setScreen(currentScreen);
 					LOGGER.info("Closing game screen.");
 
 					gameState = ((GameScreen) currentScreen).getGameState();
+					if (timedRun)
+						break; // The boss ends the run; no stage loop or intermediate cash-out.
 
 					gameState = new GameState(gameState.getLevel() + 1,
 							gameState.getScore(),
@@ -192,6 +196,10 @@ public final class Core {
 
 				} while (gameState.getLivesRemaining() > 0
 						&& gameState.getLevel() <= NUM_LEVELS);
+				if (((GameScreen) currentScreen).didQuit()) {
+					returnCode = 1;
+					break;
+				}
 
 				gameState = settlePendingDiamonds(gameState);
 
@@ -202,7 +210,8 @@ public final class Core {
 						+ gameState.getBulletsShot() + " bullets shot, "
 						+ gameState.getShipsDestroyed() + " ships destroyed, and "
                         + gameState.getCoinsCollected() + " coins collected. ");
-				currentScreen = new ScoreScreen(width, height, FPS, gameState);
+				currentScreen = new ScoreScreen(width, height, FPS, gameState,
+						timedRun && gameState.getLivesRemaining() > 0);
 				returnCode = frame.setScreen(currentScreen);
 				LOGGER.info("Closing score screen.");
 				break;
