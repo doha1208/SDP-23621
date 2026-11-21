@@ -130,7 +130,7 @@ public final class ItemVisualFeedbackTest {
         // Drive real game-facing API calls, then paint repeatedly and inspect the event queue.
         Ship ship = new Ship(200, 450, Ship.ShipType.STANDARD);
         ItemSystem items = ItemSystem.forLevel(1);
-        items.beginLevel(1, 448, ship, new ItemSystem.GameHooks() {
+        items.beginLevel(1, 448, 520, ship, new ItemSystem.GameHooks() {
             public int getLives() { return 3; }
             public void addLife() { }
             public void addScore(int points) { }

@@ -19,6 +19,7 @@ import engine.CoinDropManager;
 import engine.Cooldown;
 import engine.Core;
 import engine.DrawManager;
+import engine.ShipConfig;
 import engine.CurrencyManager;
 import engine.GameSettings;
 import engine.GameState;
@@ -49,6 +50,7 @@ import entity.enemy.LevelDirector;
 import level.LevelDirectors;
 import entity.Particle;
 import entity.Ship;
+import entity.ShipDash;
 import item.ItemSystem;
 import item.ItemAPI.EventType;
 import item.ItemAPI.ItemEvent;
@@ -100,6 +102,8 @@ public class GameScreen extends Screen {
 	private static final int ACHIEVEMENT_POPUP_SLIDE_OUT = 350;
 	/** Height of the interface separation line. */
 	private static final int SEPARATION_LINE_HEIGHT = 40;
+	/** Gap between the ship's starting row and the bottom of the screen. */
+	private static final int SHIP_BOTTOM_GAP = 30;
 	/** Lives at or below this value start the glitch. */
 	private static final int LOW_HEALTH_LIVES = 1;
 	/** Low-life effect duration (ms). */
@@ -164,6 +168,8 @@ public class GameScreen extends Screen {
 	private GameSettings gameSettings;
 	/** Current difficulty level number. */
 	private int level;
+	/** Highest y the top of the ship may reach, from res/ship.properties. */
+	private int shipTopY;
 	/** Enemies and enemy bullets of this level (Team Entities enemy overhaul). */
 	private EnemyManager enemyManager;
 	/** Decides when enemies spawn; normal stages only. */
@@ -271,6 +277,20 @@ public class GameScreen extends Screen {
 	private ItemSystem items;
 	/** Item slot keys (1-9) held last frame, so holding a key uses it once. */
 	private boolean[] itemSlotKeysHeld = new boolean[9];
+	/** Dash dodge of the ship (Team CS). */
+	private ShipDash dash;
+	/** Dash charge bar: gap below the ship and height, in pixels. */
+	private static final int DASH_BAR_GAP = 3;
+	private static final int DASH_BAR_HEIGHT = 2;
+	/** Dash charge bar colours: empty part, filled part. */
+	private static final Color DASH_BAR_EMPTY = new Color(60, 60, 60);
+	private static final Color DASH_BAR_FILL = new Color(170, 190, 200);
+	/** Dash key held last frame, so holding it dashes only once. */
+	private boolean dashKeyHeld;
+	/** Afterimages and thrust while the ship dashes (Team CS). */
+	private engine.DashVisualEffect dashEffect;
+	/** Gameplay frames fed to the dash look; stops while paused. */
+	private long dashEffectFrames;
 	/** Skin chosen in Customize; animated skins change colour each frame (GoG). */
 	private shop.Skin skin;
 	/** Whether gameplay is currently paused. */
@@ -354,8 +374,14 @@ public class GameScreen extends Screen {
 		SoundManager.getInstance().playBgm(Sound.BGM_GAME);
 
 		// Initialize the player in both boss and normal stages.
-		this.ship = new Ship(this.width / 2, this.height - 30,
+		this.ship = new Ship(this.width / 2, this.height - SHIP_BOTTOM_GAP,
 				Core.getSelectedShipType());
+		this.dash = new ShipDash(); // Team CS
+		this.dashEffect = new engine.DashVisualEffect();
+		// Never above the line under the score bar, never below the start row.
+		this.shipTopY = Math.max(SEPARATION_LINE_HEIGHT,
+				Math.min(this.height - SHIP_BOTTOM_GAP,
+						(int) (this.height * ShipConfig.topLimit())));
 
 		// Distinct mid-boss and final boss encounters.
 		this.enemyManager = new EnemyManager(this.width, this.height,
@@ -410,7 +436,7 @@ public class GameScreen extends Screen {
 
 		// Item System (Team CS): level 1 starts a new run, later levels keep it.
 		this.items = ItemSystem.forLevel(this.level);
-		this.items.beginLevel(this.level, this.width, this.ship,
+		this.items.beginLevel(this.level, this.width, this.height, this.ship,
 				new ItemSystem.GameHooks() {
 					public int getLives() { return lives; }
 					public void addLife() { lives++; }
@@ -511,12 +537,15 @@ public class GameScreen extends Screen {
 				boolean isLeftBorder = this.ship.getPositionX()
 						- this.ship.getSpeed() < 1;
 
-				if (moveRight && !isRightBorder) {
+				boolean dashing = updateDash(moveLeft, moveRight); // Team CS
+				if (moveRight && !isRightBorder && !dashing) {
 					this.ship.moveRight();
 				}
-				if (moveLeft && !isLeftBorder) {
+				if (moveLeft && !isLeftBorder && !dashing) {
 					this.ship.moveLeft();
 				}
+				if (!dashing) // the dash stays a straight sideways move (Team CS)
+					moveShipVertically();
 				if (inputManager.isKeyDown(KeyEvent.VK_SPACE)) {
 					// Count bullets, not trigger pulls: Two Way fires two at
 					// once, and accuracy is kills per bullet.
@@ -528,6 +557,7 @@ public class GameScreen extends Screen {
 			}
 
 			this.ship.update();
+			updateDashEffect(); // Team CS
 			if (this.boss != null)
 				this.boss.update(this.enemyManager, playerCenterX(),
 						playerCenterY(), this.items.enemiesFrozen());
@@ -747,6 +777,20 @@ public class GameScreen extends Screen {
 	}
 
 	/**
+	 * Moves the ship up with W or the up arrow and down with S or the down
+	 * arrow. It stays between the top limit set in res/ship.properties and
+	 * the row it starts on, which is also where item drops land.
+	 */
+	private void moveShipVertically() {
+		if (inputManager.isKeyDown(KeyEvent.VK_UP)
+				|| inputManager.isKeyDown(KeyEvent.VK_W))
+			this.ship.moveUp(this.shipTopY);
+		if (inputManager.isKeyDown(KeyEvent.VK_DOWN)
+				|| inputManager.isKeyDown(KeyEvent.VK_S))
+			this.ship.moveDown(this.height - SHIP_BOTTOM_GAP);
+	}
+
+	/**
 	 * Handles cursor movement and selection while the pause menu is open.
 	 */
 	private void updatePauseMenu() {
@@ -843,8 +887,12 @@ public class GameScreen extends Screen {
 						this.skin.colorAt(System.currentTimeMillis()),
 						engine.GhostTrail.isBoosting(this.items));
 			if (!warping)
+				drawDashTrail(); // Team CS
+			if (!warping)
 				drawManager.drawEntity(this.ship, this.ship.getPositionX(),
 						this.ship.getPositionY());
+			if (!warping)
+				drawDashCharge(); // Team CS
 			drawManager.drawWarpIn(this.warpIn, this.ship,
 					this.skin.colorAt(System.currentTimeMillis()),
 					SEPARATION_LINE_HEIGHT);
@@ -932,7 +980,7 @@ public class GameScreen extends Screen {
 			drawManager.drawHorizontalLine(this, this.height / 2 + this.height
 					/ 12);
 			drawManager.drawItemHint(this, this.items); // Item System (Team CS)
-			drawManager.drawKeyHints(this, "P to pause");
+			drawManager.drawKeyHints(this, "P to pause, Shift to dash");
 		}
 
 
@@ -1010,7 +1058,9 @@ public class GameScreen extends Screen {
 		Set<Bullet> recyclable = new HashSet<Bullet>();
 		for (Bullet bullet : this.bullets) {
 			if (bullet.getSpeed() > 0) {
-				if (checkCollision(bullet, this.ship) && !this.levelFinished) {
+				// A dashing ship dodges: the bullet flies on (Team CS).
+				if (checkCollision(bullet, this.ship) && !this.levelFinished
+						&& !this.dash.isDashing()) {
 					recyclable.add(bullet);
 					hitPlayer();
 				}
@@ -1105,10 +1155,11 @@ public class GameScreen extends Screen {
 	/**
 	 * Enemy bullets, enemy bodies and the boss hitting the player (Team
 	 * Entities enemy overhaul). Any enemy that rams the player explodes,
-	 * without rewards, however much health it had left.
+	 * without rewards, however much health it had left. A dashing ship
+	 * dodges all of it: bullets fly on and enemies pass by (Team CS).
 	 */
 	private void manageEnemyCollisions() {
-		if (this.levelFinished)
+		if (this.levelFinished || this.dash.isDashing())
 			return;
 		Iterator<EnemyBullet> enemyBullets = this.enemyManager.getBullets()
 				.iterator();
@@ -1268,6 +1319,78 @@ public class GameScreen extends Screen {
 				+ CurrencyManager.getInstance().getCoins());
 		CoinPool.recycle(this.coins);
 		this.coins.clear();
+	}
+
+	/**
+	 * Dash dodge (Team CS): Shift dashes the way the ship last moved. While
+	 * the dash lasts it moves the ship instead of the arrow keys, and stops
+	 * at the screen sides.
+	 *
+	 * @param moveLeft
+	 *            True if a left key is held.
+	 * @param moveRight
+	 *            True if a right key is held.
+	 * @return True if the dash moved the ship this frame.
+	 */
+	private boolean updateDash(final boolean moveLeft,
+			final boolean moveRight) {
+		this.dash.face((moveRight ? 1 : 0) - (moveLeft ? 1 : 0));
+		boolean dashKey = inputManager.isKeyDown(KeyEvent.VK_SHIFT);
+		if (dashKey && !this.dashKeyHeld)
+			this.dash.start();
+		this.dashKeyHeld = dashKey;
+		if (!this.dash.isDashing()) {
+			this.dash.update(); // recharge
+			return false;
+		}
+		int x = this.ship.getPositionX() + this.dash.update();
+		int maxX = this.width - 1 - this.ship.getWidth();
+		this.ship.setPositionX(Math.max(1, Math.min(x, maxX)));
+		return this.dash.isDashing();
+	}
+
+	/**
+	 * Feeds the dash look one frame of the ship (Team CS). It counts
+	 * gameplay frames, so the afterimages freeze while paused, and it
+	 * starts fresh after the ship is destroyed.
+	 */
+	private void updateDashEffect() {
+		if (this.ship.isDestroyed()) {
+			this.dashEffect.reset();
+			return;
+		}
+		this.dashEffectFrames++;
+		this.dashEffect.update(this.dashEffectFrames * 1000.0 / this.fps,
+				this.ship.getPositionX(), this.ship.getPositionY(),
+				this.dash.isDashing(), this.dash.getDirection(),
+				this.ship.getColor());
+	}
+
+	/**
+	 * Draws the dash afterimages and thrust behind the ship (Team CS).
+	 * Hidden once the level is over: the dash stops updating then, and a
+	 * frozen trail would stay on screen.
+	 */
+	private void drawDashTrail() {
+		if (!this.levelFinished && !this.ship.isDestroyed())
+			drawManager.drawDash(this.dashEffect, this.ship);
+	}
+
+	/**
+	 * Draws a thin bar under the ship while the dash recharges (Team CS).
+	 * It fills up and disappears once the next dash is ready.
+	 */
+	private void drawDashCharge() {
+		double charge = this.dash.getCharge();
+		if (charge >= 1 || this.dash.isDashing() || this.ship.isDestroyed()
+				|| this.levelFinished)
+			return;
+		int x = this.ship.getPositionX();
+		int y = this.ship.getPositionY() + this.ship.getHeight() + DASH_BAR_GAP;
+		int width = this.ship.getWidth();
+		drawManager.fillBox(x, y, width, DASH_BAR_HEIGHT, DASH_BAR_EMPTY);
+		drawManager.fillBox(x, y, (int) Math.round(width * charge),
+				DASH_BAR_HEIGHT, DASH_BAR_FILL);
 	}
 
 	/**

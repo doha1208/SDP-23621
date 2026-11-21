@@ -187,6 +187,26 @@ public class Ship extends Entity {
 	}
 
 	/**
+	 * Moves the ship speed units up, stopping at the given height.
+	 *
+	 * @param topLimit
+	 *            Highest y the top of the ship may reach.
+	 */
+	public final void moveUp(final int topLimit) {
+		this.positionY = Math.max(topLimit, this.positionY - getSpeed());
+	}
+
+	/**
+	 * Moves the ship speed units down, stopping at the given height.
+	 *
+	 * @param bottomLimit
+	 *            Lowest y the top of the ship may reach.
+	 */
+	public final void moveDown(final int bottomLimit) {
+		this.positionY = Math.min(bottomLimit, this.positionY + getSpeed());
+	}
+
+	/**
 	 * Shoots a bullet upwards. A two-way ship shoots one bullet from each of
 	 * its two barrels instead. With the spread item every lane of the fan
 	 * fires the ship's own shot, and the pierce item lets each bullet pass
