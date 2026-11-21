@@ -63,15 +63,18 @@ public final class ShipDash {
 				this.cooldown--;
 			return 0;
 		}
+		// The dash ends one update after its last step, so the ship is
+		// still dashing when that frame's hits are checked.
+		if (this.frame >= DURATION_FRAMES) {
+			this.frame = -1;
+			this.cooldown = COOLDOWN_FRAMES;
+			return 0;
+		}
 		this.frame++;
 		int target = (int) Math.round(DISTANCE
 				* easeOut(this.frame / (double) DURATION_FRAMES));
 		int step = target - this.covered;
 		this.covered = target;
-		if (this.frame >= DURATION_FRAMES) {
-			this.frame = -1;
-			this.cooldown = COOLDOWN_FRAMES;
-		}
 		return step * this.direction;
 	}
 

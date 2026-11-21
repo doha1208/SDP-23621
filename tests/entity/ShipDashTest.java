@@ -16,10 +16,11 @@ public final class ShipDashTest {
     private static int[] runDash(ShipDash dash) {
         int[] steps = new int[ShipDash.DURATION_FRAMES];
         for (int i = 0; i < steps.length; i++) {
-            check(dash.isDashing(), "Still dashing in frame " + i);
             steps[i] = dash.update();
+            check(dash.isDashing(), "Still dashing after frame " + i);
         }
-        check(!dash.isDashing(), "Dash ends after its last frame");
+        // Still dashing after the last step, so that frame's hits miss.
+        check(dash.update() == 0 && !dash.isDashing(), "Dash ends on the next update");
         return steps;
     }
 
@@ -27,6 +28,8 @@ public final class ShipDashTest {
         ShipDash dash = new ShipDash();
         check(!dash.isDashing() && dash.getCharge() == 1, "Ready at the start");
         check(dash.update() == 0, "No movement while not dashing");
+        check(ShipDash.DURATION_FRAMES == 11 && ShipDash.DISTANCE == 110
+                && ShipDash.COOLDOWN_FRAMES == 90, "Values match the docs");
 
         // A dash covers the full distance to the right, fast first, then slower.
         check(dash.start(), "Dash starts when ready");

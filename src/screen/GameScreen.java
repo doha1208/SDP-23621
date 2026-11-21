@@ -1320,7 +1320,7 @@ public class GameScreen extends Screen {
 		int x = this.ship.getPositionX() + this.dash.update();
 		int maxX = this.width - 1 - this.ship.getWidth();
 		this.ship.setPositionX(Math.max(1, Math.min(x, maxX)));
-		return true;
+		return this.dash.isDashing();
 	}
 
 	/**

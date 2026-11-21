@@ -167,6 +167,9 @@ public final class DashDodgeTest {
         Set<Bullet> bullets = (Set<Bullet>) field(GameScreen.class, "bullets").get(game);
         shift(true);
         check(frame(game, false, false), "Dash started for the dodge check");
+        // Check on the dash's last moving frame: the dodge lasts the whole dash.
+        for (int i = 1; i < DASH_FRAMES; i++)
+            check(frame(game, false, false), "Still dashing in frame " + i);
         EnemyBullet aimed = onShip(ship, enemyBullets, bullets);
         call(game, "manageCollisions", new Class[] {});
         check((Integer) field(GameScreen.class, "lives").get(game) == lives, "Dash dodges bullets");
