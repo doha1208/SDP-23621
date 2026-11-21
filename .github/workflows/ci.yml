@@ -17,13 +17,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Compile
+      - name: Compile source and tests
         run: |
           mkdir -p bin
-          javac -Xlint:all -d bin $(find src -name '*.java')
+          javac -Xlint:all -d bin $(find src tests -name '*.java')
 
       - name: Check resources referenced by code exist
         run: test -f res/graphics && test -f res/scores
+
+      - name: Check item visual feedback
+        run: java -Djava.awt.headless=true -cp bin:res item.ItemVisualFeedbackTest
 
   # Runs the game for a few seconds on a virtual display and fails if it
   # throws. Compiling is not enough: a missing font made the game die on the

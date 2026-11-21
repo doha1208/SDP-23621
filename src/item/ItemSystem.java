@@ -40,8 +40,6 @@ import item.ItemAPI.*;
 public final class ItemSystem {
     /** Drops exist below the HUD separator line (same height as GameScreen's separator). */
     private static final double PLAY_AREA_TOP = 40;
-    /** How long a notice stays on screen. */
-    private static final long NOTICE_MILLIS = 2000;
 
     private static ItemSystem current;
 
@@ -56,9 +54,7 @@ public final class ItemSystem {
     private long lastUpdateNanos = -1;
     /** Shared game logger, like the other systems use. */
     private final Logger logger = Core.getLogger();
-    /** Short message for the player about the last item action, and when it was set. */
-    private String notice;
-    private long noticeTime;
+    private final ItemFeedback feedback = new ItemFeedback();
     /** True while a slot item is being used, so its effect start shows no pickup notice. */
     private boolean usingSlot;
 
@@ -250,6 +246,7 @@ public final class ItemSystem {
             dropRules());
         manager.beginLevel(rules, lifePort);
         lastUpdateNanos = -1;
+        feedback.clear();
         logger.info("Item system started level " + level + ".");
     }
 
@@ -266,8 +263,13 @@ public final class ItemSystem {
         }
         Bounds bounds = new Bounds(ship.getPositionX(), ship.getPositionY(),
             Math.max(1, ship.getWidth()), Math.max(1, ship.getHeight()));
+        feedback.advance(delta, bounds);
         manager.update(delta, new PlayerSnapshot(bounds, shipAvailable, shipAvailable));
+        feedback.checkFullInventory(api.getView(), bounds, shipAvailable);
     }
+
+    /** Discards elapsed wall time while the game is paused; effects resume at their saved duration. */
+    public void suspendClock() { lastUpdateNanos = -1; }
 
     /** Called when an enemy is defeated. Rolls a drop at the enemy's center. */
     public void onEnemyDefeated(Entity enemy, boolean special) {
@@ -291,9 +293,18 @@ public final class ItemSystem {
         } finally {
             usingSlot = false;
         }
-        if (result == UseResult.EFFECT_ALREADY_ACTIVE && item != null) {
-            showNotice(item.displayName + " is already active");
-            logger.info("Item not used: " + item.displayName + " is already active.");
+        if (result != UseResult.USED) {
+            String reason;
+            switch (result) {
+                case EMPTY_SLOT: reason = "Slot " + (slot + 1) + " is empty"; break;
+                case EFFECT_ALREADY_ACTIVE: reason = "This effect is already active"; break;
+                case INVALID_SLOT: reason = "Choose an existing item slot"; break;
+                case PLAYER_UNAVAILABLE: reason = "Wait until your ship is ready"; break;
+                case LEVEL_NOT_ACTIVE: reason = "Start a level to use items"; break;
+                default: reason = "The effect cannot be applied right now"; break;
+            }
+            feedback.action(item == null ? EffectKind.EXTRA_SLOTS : item.effectKind,
+                "Item not used", reason, true);
         }
         return result;
     }
@@ -344,28 +355,46 @@ public final class ItemSystem {
         return null;
     }
 
-    /** Draws the drops on the field. Placeholder shapes until proper sprites are decided. */
+    /** Pixel icons use the same visual language as the inventory and active effects. */
     public void drawDrops(Graphics graphics) {
-        for (DropView drop : api.getView().drops) {
-            int x = (int) drop.bounds.x, y = (int) drop.bounds.y;
-            int w = (int) drop.bounds.width, h = (int) drop.bounds.height;
-            graphics.setColor(colorOf(drop.item.effectKind));
-            graphics.fillRect(x, y, w, h);
-            graphics.setColor(Color.BLACK);
-            graphics.drawString(drop.item.displayName.substring(0, 1), x + w / 4, y + h - 3);
+        for (DropView drop : api.getView().drops)
+            ItemArtwork.drawIcon(graphics, drop.item.effectKind,
+                (int) drop.bounds.x, (int) drop.bounds.y,
+                (int) Math.min(drop.bounds.width, drop.bounds.height));
+    }
+
+    /** Paints short bursts and temporary boost thrust without consuming the event queue. */
+    public void drawFeedback(Graphics graphics, Entity ship) {
+        feedback.drawPulses(graphics);
+        for (EffectView effect : api.getView().effects) {
+            if (effect.item.effectKind != EffectKind.BOOST) continue;
+            Graphics g = graphics.create();
+            try {
+                g.setColor(new Color(120, 255, 165, 150));
+                int x = ship.getPositionX() + ship.getWidth() / 2;
+                int y = ship.getPositionY() + ship.getHeight() + 2;
+                for (int i = 0; i < 3; i++)
+                    g.fillRect(x - 5 + i * 4, y + (int) (feedback.time() / 80 + i) % 3, 2, 5);
+            } finally { g.dispose(); }
         }
+    }
+
+    /** Compact, two-line explanation above the player. Time freezes while gameplay is paused. */
+    public void drawNotice(Graphics graphics, int width, int height, java.awt.Font font) {
+        feedback.drawNotice(graphics, width, height, font);
     }
 
     /** Ends the level. Does nothing if no level is active. */
     public void endLevel() {
         if (!isLevelActive()) return;
         manager.endLevel();
+        feedback.clear();
         logger.info("Item system ended level " + levelNumber + ".");
     }
 
     /** Message about the last item action for the screen, or null when there is nothing recent. */
     public String getNotice() {
-        return notice != null && System.currentTimeMillis() - noticeTime < NOTICE_MILLIS ? notice : null;
+        return feedback.notice();
     }
 
     /** Events for sound/effects. Cleared once drained. */
@@ -382,12 +411,12 @@ public final class ItemSystem {
             if (hooks.getLives() < maxLives) {
                 hooks.addLife();
                 logger.info("Life item: +1 life, now " + hooks.getLives() + ".");
-                showNotice("Life +1");
+                feedback.show(EffectKind.LIFE, "Life +1", "Extra life applied", false);
             } else {
                 int points = scoreFor(balance.lifeCapBonusScore);
                 hooks.addScore(points);
                 logger.info("Life item at max lives: +" + points + " score.");
-                showNotice("Max lives: +" + points);
+                feedback.show(EffectKind.LIFE, "Max lives: +" + points, "Life converted to bonus points", false);
             }
             return true;
         }
@@ -402,10 +431,12 @@ public final class ItemSystem {
                 logger.info("Item dropped: " + name + position(event.bounds) + ".");
                 break;
             case ITEM_COLLECTED:
+                feedback.pulse(item.effectKind, event.bounds, false);
                 if (event.slotIndex != null) {
                     int key = event.slotIndex + 1;
                     logger.info("Item collected: " + name + " stored in slot " + key + ".");
-                    showNotice(name + " (press " + key + ")");
+                    feedback.show(item.effectKind, name + " collected",
+                        "Press " + key + " / " + ItemArtwork.describe(item, null), false);
                 } else {
                     logger.info("Item collected: " + name + ".");
                 }
@@ -413,22 +444,29 @@ public final class ItemSystem {
             case ITEM_USED:
                 logger.info("Item used: " + name + " from slot " + (event.slotIndex + 1) + ".");
                 Core.getAchievementManager().recordItemUsed();
-                notice = null; // a "(press N)" hint is outdated once the item is used
-                if (item != null && (item.effectKind == EffectKind.BOOST || item.effectKind == EffectKind.SCORE_BOOST))
-                    showNotice(name + " x" + multiplier(item.magnitude));
+                if (item != null)
+                    feedback.action(item.effectKind, name + " active",
+                        ItemArtwork.describe(item, effect(event.effectId)), false);
                 break;
             case EFFECT_STARTED: {
                 Integer stacks = stacksOf(event.effectId);
                 String label = name + (stacks != null ? " x" + stacks : "");
                 logger.info("Item effect started: " + label + ".");
-                if (!usingSlot) showNotice(label); // picked up, not used from a slot
+                feedback.pulse(item.effectKind, null, true);
+                if (!usingSlot)
+                    feedback.show(item.effectKind, name + " applied",
+                        ItemArtwork.describe(item, effect(event.effectId)), false);
                 break;
             }
             case EFFECT_ENDED:
                 logger.info("Item effect ended: " + name + " (" + event.endReason + ").");
+                if (event.endReason == EffectEndReason.EXPIRED && feedback.notice() == null)
+                    feedback.show(item.effectKind, name + " ended", "Effect duration finished", false);
                 break;
             case SHIELD_BLOCKED:
                 logger.info("Item effect: shield blocked a hit.");
+                feedback.action(EffectKind.SHIELD, "Shield blocked a hit", "No life lost", false);
+                feedback.pulse(EffectKind.SHIELD, null, true);
                 break;
             case ITEM_EXPIRED:
                 logger.info("Item drop disappeared: " + name + ".");
@@ -438,23 +476,25 @@ public final class ItemSystem {
                 int points = magnet == null ? 0 : magnet.magnitude.intValue();
                 hooks.addScore(points);
                 logger.info("Magnet: " + name + " could not be kept, +" + points + " score.");
-                showNotice(name + " +" + points);
+                feedback.show(item.effectKind, name + " +" + points, "Magnet converted the pickup", false);
                 break;
             }
+            case ITEM_GRANTED:
+                if (event.slotIndex != null)
+                    feedback.show(item.effectKind, name + " received",
+                        "Press " + (event.slotIndex + 1) + " / " + ItemArtwork.describe(item, null), false);
+                break;
             default:
                 logger.info("Item event " + event.type + ": " + name + ".");
                 break;
         }
     }
 
-    /** A multiplier without trailing zeros: 2.0 -> "2", 1.5 -> "1.5". */
-    private static String multiplier(double value) {
-        return value == Math.rint(value) ? Long.toString((long) value) : Double.toString(value);
-    }
-
-    private void showNotice(String text) {
-        notice = text;
-        noticeTime = System.currentTimeMillis();
+    private EffectView effect(Long id) {
+        if (id != null)
+            for (EffectView effect : api.getView().effects)
+                if (effect.effectId == id) return effect;
+        return null;
     }
 
     private Integer stacksOf(Long effectId) {
