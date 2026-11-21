@@ -19,6 +19,7 @@ import engine.CoinDropManager;
 import engine.Cooldown;
 import engine.Core;
 import engine.DrawManager;
+import engine.ShipConfig;
 import engine.CurrencyManager;
 import engine.GameSettings;
 import engine.GameState;
@@ -101,6 +102,8 @@ public class GameScreen extends Screen {
 	private static final int ACHIEVEMENT_POPUP_SLIDE_OUT = 350;
 	/** Height of the interface separation line. */
 	private static final int SEPARATION_LINE_HEIGHT = 40;
+	/** Gap between the ship's starting row and the bottom of the screen. */
+	private static final int SHIP_BOTTOM_GAP = 30;
 	/** Lives at or below this value start the glitch. */
 	private static final int LOW_HEALTH_LIVES = 1;
 	/** Low-life effect duration (ms). */
@@ -165,6 +168,8 @@ public class GameScreen extends Screen {
 	private GameSettings gameSettings;
 	/** Current difficulty level number. */
 	private int level;
+	/** Highest y the top of the ship may reach, from res/ship.properties. */
+	private int shipTopY;
 	/** Enemies and enemy bullets of this level (Team Entities enemy overhaul). */
 	private EnemyManager enemyManager;
 	/** Decides when enemies spawn; normal stages only. */
@@ -369,10 +374,14 @@ public class GameScreen extends Screen {
 		SoundManager.getInstance().playBgm(Sound.BGM_GAME);
 
 		// Initialize the player in both boss and normal stages.
-		this.ship = new Ship(this.width / 2, this.height - 30,
+		this.ship = new Ship(this.width / 2, this.height - SHIP_BOTTOM_GAP,
 				Core.getSelectedShipType());
 		this.dash = new ShipDash(); // Team CS
 		this.dashEffect = new engine.DashVisualEffect();
+		// Never above the line under the score bar, never below the start row.
+		this.shipTopY = Math.max(SEPARATION_LINE_HEIGHT,
+				Math.min(this.height - SHIP_BOTTOM_GAP,
+						(int) (this.height * ShipConfig.topLimit())));
 
 		// Distinct mid-boss and final boss encounters.
 		this.enemyManager = new EnemyManager(this.width, this.height,
@@ -534,6 +543,8 @@ public class GameScreen extends Screen {
 				if (moveLeft && !isLeftBorder && !dashing) {
 					this.ship.moveLeft();
 				}
+				if (!dashing) // the dash stays a straight sideways move (Team CS)
+					moveShipVertically();
 				if (inputManager.isKeyDown(KeyEvent.VK_SPACE)) {
 					// Count bullets, not trigger pulls: Two Way fires two at
 					// once, and accuracy is kills per bullet.
@@ -762,6 +773,20 @@ public class GameScreen extends Screen {
 		if (fadeElapsed > 0)
 			drawManager.drawFadeOverlay(this, (int) (fadeElapsed * 255
 					/ GAME_OVER_FADE_DURATION));
+	}
+
+	/**
+	 * Moves the ship up with W or the up arrow and down with S or the down
+	 * arrow. It stays between the top limit set in res/ship.properties and
+	 * the row it starts on, which is also where item drops land.
+	 */
+	private void moveShipVertically() {
+		if (inputManager.isKeyDown(KeyEvent.VK_UP)
+				|| inputManager.isKeyDown(KeyEvent.VK_W))
+			this.ship.moveUp(this.shipTopY);
+		if (inputManager.isKeyDown(KeyEvent.VK_DOWN)
+				|| inputManager.isKeyDown(KeyEvent.VK_S))
+			this.ship.moveDown(this.height - SHIP_BOTTOM_GAP);
 	}
 
 	/**
