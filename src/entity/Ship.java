@@ -27,18 +27,22 @@ public class Ship extends Entity {
 	public enum ShipType {
 		/** Standard ship. */
 		STANDARD(2, 750, 6, 1, Bullet.DEFAULT_WIDTH, Bullet.DEFAULT_HEIGHT,
-				SpriteType.Ship),
+				false, SpriteType.Ship),
 		/** Ship with a high movement speed. */
 		FAST_MOVE(4, 750, 6, 1, Bullet.DEFAULT_WIDTH, Bullet.DEFAULT_HEIGHT,
-				SpriteType.ShipFastMove),
+				false, SpriteType.ShipFastMove),
 		/** Ship that shoots a bullet from each of its two barrels. */
 		TWO_WAY(1, 1000, 6, 2, Bullet.DEFAULT_WIDTH, Bullet.DEFAULT_HEIGHT,
-				SpriteType.ShipTwoWay),
+				false, SpriteType.ShipTwoWay),
 		/** Ship with a high rate of fire. */
 		FAST_ATTACK(2, 375, 6, 1, Bullet.DEFAULT_WIDTH, Bullet.DEFAULT_HEIGHT,
-				SpriteType.ShipFastAttack),
-		/** Ship with a large projectile (9x15 sprite pixels, scaled by 2). */
-		BIG_BULLET(2, 1000, 6, 1, 9 * 2, 15 * 2, SpriteType.ShipBigBullet);
+				false, SpriteType.ShipFastAttack),
+		/**
+		 * Ship with a large projectile (9x15 sprite pixels, scaled by 2) that
+		 * goes on through every enemy it overlaps.
+		 */
+		BIG_BULLET(2, 1000, 6, 1, 9 * 2, 15 * 2, true,
+				SpriteType.ShipBigBullet);
 
 		/** Movement of the ship for each unit of time. */
 		private final int speed;
@@ -51,6 +55,8 @@ public class Ship extends Entity {
 		/** Size of each bullet in px. */
 		private final int bulletWidth;
 		private final int bulletHeight;
+		/** Whether the bullets go on through every enemy they overlap. */
+		private final boolean piercing;
 		/** Sprite of the ship while it is not destroyed. */
 		private final SpriteType idleSprite;
 
@@ -70,13 +76,16 @@ public class Ship extends Entity {
 		 *            Width of each bullet in px.
 		 * @param bulletHeight
 		 *            Height of each bullet in px.
+		 * @param piercing
+		 *            True if the bullets go on through every enemy they
+		 *            overlap.
 		 * @param idleSprite
 		 *            Sprite of the ship while it is not destroyed.
 		 */
 		ShipType(final int speed, final int shootingInterval,
 				 final int bulletSpeed, final int bulletsPerShot,
 				 final int bulletWidth, final int bulletHeight,
-				 final SpriteType idleSprite) {
+				 final boolean piercing, final SpriteType idleSprite) {
 			// res/ship-stats.properties can override every number.
 			this.speed = ShipStats.get(name(), "speed", speed);
 			this.shootingInterval = ShipStats.get(name(), "shootingInterval",
@@ -87,6 +96,7 @@ public class Ship extends Entity {
 			this.bulletWidth = ShipStats.get(name(), "bulletWidth", bulletWidth);
 			this.bulletHeight = ShipStats.get(name(), "bulletHeight",
 					bulletHeight);
+			this.piercing = ShipStats.getFlag(name(), "piercing", piercing);
 			this.idleSprite = idleSprite;
 		}
 
@@ -123,6 +133,11 @@ public class Ship extends Entity {
 		/** @return Height of each bullet in px. */
 		public int getBulletHeight() {
 			return this.bulletHeight;
+		}
+
+		/** @return True if the bullets go on through every enemy they overlap. */
+		public boolean isPiercing() {
+			return this.piercing;
 		}
 
 		/** @return Sprite of the ship while it is not destroyed. */
@@ -264,6 +279,7 @@ public class Ship extends Entity {
 						   final int speedX) {
 		bullet.setSpeedX(speedX);
 		bullet.setPierce(this.itemPierceCount);
+		bullet.setPiercing(this.type.piercing);
 		bullets.add(bullet);
 	}
 

@@ -74,7 +74,7 @@ public final class ShipStatsTest {
             throw new AssertionError("Cannot write a temp properties file", e);
         }
         Properties shipped = ShipStats.load(Paths.get("res", ShipStats.FILE_NAME));
-        check(shipped.size() == ShipType.values().length * 6, "Shipped file has six stats per ship");
+        check(shipped.size() == ShipType.values().length * 7, "Shipped file has seven stats per ship");
         for (ShipType type : ShipType.values())
             check(Integer.parseInt(shipped.getProperty(ShipStats.key(type.name(), "bulletWidth")))
                 == type.getBulletWidth(), type + " bullet width comes from the file key");
@@ -94,6 +94,17 @@ public final class ShipStatsTest {
         for (String key : new String[] { "blank", "zero", "negative", "text", "decimal" })
             check(ShipStats.positive(settings, key, 4) == 4, "Invalid " + key + " keeps default");
 
+        // Piercing is its own true/false setting, not decided by bullet width.
+        settings.setProperty("on", "TRUE ");
+        settings.setProperty("off", "false");
+        check(ShipStats.flag(settings, "on", false), "true turns piercing on, any case");
+        check(!ShipStats.flag(settings, "off", true), "false turns piercing off");
+        check(ShipStats.flag(settings, "missing", true), "Missing flag keeps default");
+        for (String key : new String[] { "blank", "zero", "text" })
+            check(!ShipStats.flag(settings, key, false), "Invalid flag " + key + " keeps default");
+        for (ShipType type : ShipType.values())
+            check(type.isPiercing() == (type == ShipType.BIG_BULLET), type + " piercing as before");
+
         // Shooting follows each type's stats.
         for (ShipType type : ShipType.values()) {
             Ship ship = new Ship(200, 400, type);
@@ -105,6 +116,7 @@ public final class ShipStatsTest {
                 check(bullet.getSpeed() == -type.getBulletSpeed(), type + " bullet speed");
                 check(bullet.getWidth() == type.getBulletWidth()
                     && bullet.getHeight() == type.getBulletHeight(), type + " bullet size");
+                check(bullet.isPiercing() == type.isPiercing(), type + " bullet piercing");
                 sum += centerOf(bullet) - center;
             }
             check(sum == 0, type + " barrels are symmetric around the center");

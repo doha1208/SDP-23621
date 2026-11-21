@@ -51,6 +51,22 @@ final class ShipStats {
 		return positive(SETTINGS, key(ship, stat), fallback);
 	}
 
+	/**
+	 * Value of one on/off stat for one ship.
+	 *
+	 * @param ship
+	 *            Ship type name, e.g. BIG_BULLET.
+	 * @param stat
+	 *            Stat name, e.g. piercing.
+	 * @param fallback
+	 *            Built-in value.
+	 * @return The configured value, or the fallback.
+	 */
+	static boolean getFlag(final String ship, final String stat,
+			final boolean fallback) {
+		return flag(SETTINGS, key(ship, stat), fallback);
+	}
+
 	/** Property key of a stat: FAST_MOVE + speed is fast_move.speed. */
 	static String key(final String ship, final String stat) {
 		return ship.toLowerCase(Locale.ROOT) + "." + stat;
@@ -82,6 +98,31 @@ final class ShipStats {
 		LOGGER.warning("Ignoring " + key + "=" + value.trim() + " in "
 				+ FILE_NAME + ": expected a whole number above 0, using "
 				+ fallback + ".");
+		return fallback;
+	}
+
+	/**
+	 * Reads true or false, in any case.
+	 *
+	 * @param settings
+	 *            Loaded settings.
+	 * @param key
+	 *            Property key.
+	 * @param fallback
+	 *            Value used when the key is missing or invalid.
+	 * @return The parsed value, or the fallback.
+	 */
+	static boolean flag(final Properties settings, final String key,
+			final boolean fallback) {
+		String value = settings.getProperty(key);
+		if (value == null || value.trim().isEmpty())
+			return fallback;
+		String word = value.trim().toLowerCase(Locale.ROOT);
+		if (word.equals("true") || word.equals("false"))
+			return word.equals("true");
+		LOGGER.warning("Ignoring " + key + "=" + value.trim() + " in "
+				+ FILE_NAME + ": expected true or false, using " + fallback
+				+ ".");
 		return fallback;
 	}
 

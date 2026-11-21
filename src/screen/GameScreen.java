@@ -1018,9 +1018,9 @@ public class GameScreen extends Screen {
 					recyclable.add(bullet);
 				} else {
 					// A normal bullet stops at the first enemy it hits; only a
-					// wider one (big-bullet ship) goes on through overlapping
-					// enemies, hitting each once.
-					boolean piercing = bullet.getWidth() > Bullet.DEFAULT_WIDTH;
+					// piercing one (big-bullet ship) goes on through overlapping
+					// enemies, hitting each once. Set per ship, not by size.
+					boolean piercing = bullet.isPiercing();
 					for (Enemy enemy : this.enemyManager) {
 						if (enemy.isHittable()
 								&& checkCollision(bullet, enemy)
