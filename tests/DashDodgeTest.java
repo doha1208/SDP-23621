@@ -78,6 +78,14 @@ public final class DashDodgeTest {
         return image;
     }
 
+    /** @return True if nothing was drawn on the image. */
+    private static boolean blank(BufferedImage image) {
+        for (int y = 0; y < image.getHeight(); y++)
+            for (int x = 0; x < image.getWidth(); x++)
+                if ((image.getRGB(x, y) & 0xFFFFFF) != 0) return false;
+        return true;
+    }
+
     /** Runs frames until the dash would be ready again. */
     private static void recharge(GameScreen game) throws Exception {
         for (int i = 0; i < 200; i++) frame(game, false, false);
@@ -156,6 +164,22 @@ public final class DashDodgeTest {
         image = canvas();
         call(game, "drawDashCharge", new Class[] {});
         check((image.getRGB(ship.getPositionX(), barY) & 0xFFFFFF) == 0, "No bar once the dash is ready");
+
+        // If the level ends mid-dash, the frozen trail and the bar are not drawn.
+        shift(true);
+        frame(game, false, false);
+        call(game, "updateDashEffect", new Class[] {});
+        field(GameScreen.class, "levelFinished").set(game, true);
+        image = canvas();
+        call(game, "drawDashTrail", new Class[] {});
+        call(game, "drawDashCharge", new Class[] {});
+        check(blank(image), "No dash trail after the level ends");
+        field(GameScreen.class, "levelFinished").set(game, false);
+        image = canvas();
+        call(game, "drawDashTrail", new Class[] {});
+        check(!blank(image), "Dash trail is drawn while the level runs");
+        while (frame(game, false, false)) { }
+        shift(false);
 
         // While dashing, bullets on the ship fly on and take no life.
         recharge(game);

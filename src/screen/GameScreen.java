@@ -860,8 +860,8 @@ public class GameScreen extends Screen {
 				this.ghostTrail.draw(drawManager, this.ship,
 						this.skin.colorAt(System.currentTimeMillis()),
 						engine.GhostTrail.isBoosting(this.items));
-			if (!warping && !this.ship.isDestroyed())
-				drawManager.drawDash(this.dashEffect, this.ship); // Team CS
+			if (!warping)
+				drawDashTrail(); // Team CS
 			if (!warping)
 				drawManager.drawEntity(this.ship, this.ship.getPositionX(),
 						this.ship.getPositionY());
@@ -1341,12 +1341,23 @@ public class GameScreen extends Screen {
 	}
 
 	/**
+	 * Draws the dash afterimages and thrust behind the ship (Team CS).
+	 * Hidden once the level is over: the dash stops updating then, and a
+	 * frozen trail would stay on screen.
+	 */
+	private void drawDashTrail() {
+		if (!this.levelFinished && !this.ship.isDestroyed())
+			drawManager.drawDash(this.dashEffect, this.ship);
+	}
+
+	/**
 	 * Draws a thin bar under the ship while the dash recharges (Team CS).
 	 * It fills up and disappears once the next dash is ready.
 	 */
 	private void drawDashCharge() {
 		double charge = this.dash.getCharge();
-		if (charge >= 1 || this.dash.isDashing() || this.ship.isDestroyed())
+		if (charge >= 1 || this.dash.isDashing() || this.ship.isDestroyed()
+				|| this.levelFinished)
 			return;
 		int x = this.ship.getPositionX();
 		int y = this.ship.getPositionY() + this.ship.getHeight() + DASH_BAR_GAP;
