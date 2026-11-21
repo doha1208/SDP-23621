@@ -7,6 +7,7 @@ import java.util.Set;
 import javax.swing.JPanel;
 
 import engine.Core;
+import engine.DashVisualEffect;
 import engine.GameSettings;
 import engine.GameState;
 import entity.Bullet;
@@ -118,6 +119,21 @@ public final class DashDodgeTest {
         check(ship.getPositionX() == 448 - 1 - ship.getWidth(), "Dash stops at the right side");
         shift(false);
 
+        // The dash look follows the dash: afterimages appear and fade after it.
+        DashVisualEffect look = (DashVisualEffect) field(GameScreen.class, "dashEffect").get(game);
+        recharge(game);
+        ship.setPositionX(200);
+        shift(true);
+        int most = 0;
+        while (frame(game, false, false)) {
+            call(game, "updateDashEffect", new Class[] {});
+            most = Math.max(most, look.getGhostCount());
+        }
+        check(most > 0 && most <= 3, "Dash leaves up to three afterimages, got " + most);
+        for (int i = 0; i < 10; i++) call(game, "updateDashEffect", new Class[] {});
+        check(look.getGhostCount() == 0, "Afterimages fade after the dash");
+        shift(false);
+
         // While dashing, bullets on the ship fly on and take no life.
         recharge(game);
         ship.setPositionX(200);
@@ -142,6 +158,8 @@ public final class DashDodgeTest {
         call(game, "manageCollisions", new Class[] {});
         check((Integer) field(GameScreen.class, "lives").get(game) == lives - 1, "Hit lands after the dash");
         check(ship.isDestroyed(), "Ship explodes after the dash");
+        call(game, "updateDashEffect", new Class[] {});
+        check(look.getGhostCount() == 0, "No dash look while the ship is destroyed");
         shift(false);
 
         System.out.println("PASS: " + checks + " checks");

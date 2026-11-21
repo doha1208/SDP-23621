@@ -276,6 +276,10 @@ public class GameScreen extends Screen {
 	private ShipDash dash;
 	/** Dash key held last frame, so holding it dashes only once. */
 	private boolean dashKeyHeld;
+	/** Afterimages and thrust while the ship dashes (Team CS). */
+	private engine.DashVisualEffect dashEffect;
+	/** Gameplay frames fed to the dash look; stops while paused. */
+	private long dashEffectFrames;
 	/** Skin chosen in Customize; animated skins change colour each frame (GoG). */
 	private shop.Skin skin;
 	/** Whether gameplay is currently paused. */
@@ -362,6 +366,7 @@ public class GameScreen extends Screen {
 		this.ship = new Ship(this.width / 2, this.height - 30,
 				Core.getSelectedShipType());
 		this.dash = new ShipDash(); // Team CS
+		this.dashEffect = new engine.DashVisualEffect();
 
 		// Distinct mid-boss and final boss encounters.
 		this.enemyManager = new EnemyManager(this.width, this.height,
@@ -534,6 +539,7 @@ public class GameScreen extends Screen {
 			}
 
 			this.ship.update();
+			updateDashEffect(); // Team CS
 			if (this.boss != null)
 				this.boss.update(this.enemyManager, playerCenterX(),
 						playerCenterY(), this.items.enemiesFrozen());
@@ -848,6 +854,8 @@ public class GameScreen extends Screen {
 				this.ghostTrail.draw(drawManager, this.ship,
 						this.skin.colorAt(System.currentTimeMillis()),
 						engine.GhostTrail.isBoosting(this.items));
+			if (!warping && !this.ship.isDestroyed())
+				drawManager.drawDash(this.dashEffect, this.ship); // Team CS
 			if (!warping)
 				drawManager.drawEntity(this.ship, this.ship.getPositionX(),
 						this.ship.getPositionY());
@@ -1305,6 +1313,23 @@ public class GameScreen extends Screen {
 		int maxX = this.width - 1 - this.ship.getWidth();
 		this.ship.setPositionX(Math.max(1, Math.min(x, maxX)));
 		return true;
+	}
+
+	/**
+	 * Feeds the dash look one frame of the ship (Team CS). It counts
+	 * gameplay frames, so the afterimages freeze while paused, and it
+	 * starts fresh after the ship is destroyed.
+	 */
+	private void updateDashEffect() {
+		if (this.ship.isDestroyed()) {
+			this.dashEffect.reset();
+			return;
+		}
+		this.dashEffectFrames++;
+		this.dashEffect.update(this.dashEffectFrames * 1000.0 / this.fps,
+				this.ship.getPositionX(), this.ship.getPositionY(),
+				this.dash.isDashing(), this.dash.getDirection(),
+				this.ship.getColor());
 	}
 
 	/**

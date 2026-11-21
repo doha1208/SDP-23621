@@ -492,6 +492,20 @@ public final class DrawManager {
 	}
 
 	/**
+	 * Draws the dash afterimages and thrust behind the player ship (Team
+	 * CS, look from the DES-6 dash preview). Call before the ship.
+	 *
+	 * @param effect
+	 *            Dash effect, already updated this frame.
+	 * @param ship
+	 *            Player ship, for its sprite.
+	 */
+	public void drawDash(final DashVisualEffect effect, final Ship ship) {
+		effect.draw((Graphics2D) backBufferGraphics,
+				spriteMap.get(ship.getSpriteType()));
+	}
+
+	/**
 	 * Draws the shield item around the player ship while it is active
 	 * (Team CS - Item System): a cyan bubble that blinks during its last
 	 * seconds.
