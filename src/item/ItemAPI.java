@@ -49,10 +49,11 @@ public final class ItemAPI {
      */
     public enum ActivationMode { ON_PICKUP, MANUAL, EQUIPPED }
     public enum EffectKind {
-        LIFE, SHIELD, RAPID_FIRE, BULLET_SPEED, FREEZE, BOOST, SCORE_BOOST, EXTRA_SLOTS, MAGNET, MAX_LIFE, LONG_LASTING
+        LIFE, SHIELD, RAPID_FIRE, BULLET_SPEED, SPREAD, PIERCE, FREEZE, BOOST, SCORE_BOOST,
+        EXTRA_SLOTS, MAGNET, MAX_LIFE, LONG_LASTING
     }
     /**
-     * UNTIL_RUN_END: lasts for the whole run and stacks when picked up again (rapid fire, bullet speed).
+     * UNTIL_RUN_END: lasts for the whole run and stacks when picked up again (rapid fire, bullet speed, spread, pierce).
      * WHILE_EQUIPPED: active for the whole run while the item is equipped.
      */
     public enum DurationKind { INSTANT, TIMED, UNTIL_LEVEL_END, UNTIL_RUN_END, WHILE_EQUIPPED }
@@ -75,7 +76,7 @@ public final class ItemAPI {
         ITEM_SPAWNED, ITEM_COLLECTED, ITEM_USED, EFFECT_STARTED,
         EFFECT_ENDED, SHIELD_BLOCKED, ITEM_EXPIRED,
         ITEM_GRANTED, PENDING_GRANT_APPLIED,
-        /** The magnet took a landed drop it could not keep; it becomes score. */
+        /** A magnet-attracted drop touched the player but could not be kept; it becomes score. */
         ITEM_CONVERTED
     }
 
@@ -100,12 +101,15 @@ public final class ItemAPI {
 
     /**
      * Values added by items. Temporary extra = (base value * multiplier) - base value.
-     * fireRateBonus: extra shots per second. bulletSpeedBonus: extra bullet speed in pixels per frame.
+     * fireRateBonus: extra shots per second. fireRateRatio: extra share of the base fire rate (rapid fire).
+     * bulletSpeedBonus: extra bullet speed in pixels per frame.
+     * spreadCount: extra bullet lanes per shot. pierceCount: extra enemies one bullet passes through.
      * Multiplier fields describe the effects; the bonus helpers return only the amounts to add.
      * BOOST does not scale permanent bonuses. A multiplier below 1 produces no extra bonus.
      */
     public static final class Modifiers {
-        public final double fireRateBonus, bulletSpeedBonus;
+        public final double fireRateBonus, fireRateRatio, bulletSpeedBonus;
+        public final int spreadCount, pierceCount;
         public final double movementSpeedMultiplier, fireRateMultiplier, scoreMultiplier;
         public final boolean enemyMovementBlocked;
         public Modifiers(double fireRateBonus, double bulletSpeedBonus, boolean blocked) {
@@ -113,10 +117,21 @@ public final class ItemAPI {
         }
         public Modifiers(double fireRateBonus, double bulletSpeedBonus, boolean blocked,
                          double movementSpeedMultiplier, double fireRateMultiplier, double scoreMultiplier) {
-            nonNegative(fireRateBonus, "fireRateBonus"); nonNegative(bulletSpeedBonus, "bulletSpeedBonus");
+            this(fireRateBonus, 0.0, bulletSpeedBonus, 0, 0, blocked,
+                movementSpeedMultiplier, fireRateMultiplier, scoreMultiplier);
+        }
+        public Modifiers(double fireRateBonus, double fireRateRatio, double bulletSpeedBonus,
+                         int spreadCount, int pierceCount, boolean blocked,
+                         double movementSpeedMultiplier, double fireRateMultiplier, double scoreMultiplier) {
+            nonNegative(fireRateBonus, "fireRateBonus"); nonNegative(fireRateRatio, "fireRateRatio");
+            nonNegative(bulletSpeedBonus, "bulletSpeedBonus");
+            if (spreadCount < 0) throw new IllegalArgumentException("spreadCount");
+            if (pierceCount < 0) throw new IllegalArgumentException("pierceCount");
             positive(movementSpeedMultiplier, "movementSpeedMultiplier");
             positive(fireRateMultiplier, "fireRateMultiplier"); positive(scoreMultiplier, "scoreMultiplier");
-            this.fireRateBonus = fireRateBonus; this.bulletSpeedBonus = bulletSpeedBonus;
+            this.fireRateBonus = fireRateBonus; this.fireRateRatio = fireRateRatio;
+            this.bulletSpeedBonus = bulletSpeedBonus;
+            this.spreadCount = spreadCount; this.pierceCount = pierceCount;
             this.movementSpeedMultiplier = movementSpeedMultiplier; this.fireRateMultiplier = fireRateMultiplier;
             this.scoreMultiplier = scoreMultiplier;
             enemyMovementBlocked = blocked;
@@ -128,9 +143,10 @@ public final class ItemAPI {
             return temporaryBonus(baseSpeed, movementSpeedMultiplier, "baseSpeed");
         }
 
-        /** Total extra shots per second: permanent bonus plus the boost's base-derived extra. */
+        /** Total extra shots per second: permanent bonus, rapid fire's share of the base rate, and the boost's extra. */
         public double fireRateBonus(double baseFireRate) {
-            double total = fireRateBonus + temporaryBonus(baseFireRate, fireRateMultiplier, "baseFireRate");
+            double total = fireRateBonus + baseFireRate * fireRateRatio
+                + temporaryBonus(baseFireRate, fireRateMultiplier, "baseFireRate");
             finite(total, "fire rate bonus");
             return total;
         }
@@ -237,7 +253,9 @@ public final class ItemAPI {
 
     public static final class LevelRules {
         public final String levelId;
+        /** floorY is the screen bottom: drops disappear when their top reaches it. */
         public final double left, right, top, floorY, fallSpeed, pickupWidth, pickupHeight;
+        /** Legacy constructor value, retained for API compatibility; drops no longer land or have a ground TTL. */
         public final long groundLifetimeMillis;
         public final Map<DropSource, DropRule> dropRules;
         public LevelRules(String id, double left, double right, double top, double floorY,
@@ -326,11 +344,18 @@ public final class ItemAPI {
         public final long dropId;
         public final ItemInfo item;
         public final Bounds bounds;
+        /** Retained for callers of the old API; moving drops never become grounded. */
         public final boolean grounded;
+        /** True once this drop has entered an equipped magnet's range. */
+        public final boolean magnetized;
         public DropView(long id, ItemInfo item, Bounds bounds, boolean grounded) {
+            this(id, item, bounds, grounded, false);
+        }
+        public DropView(long id, ItemInfo item, Bounds bounds, boolean grounded, boolean magnetized) {
             if (id <= 0) throw new IllegalArgumentException("dropId");
             dropId = id; this.item = required(item, "item"); this.bounds = required(bounds, "bounds");
             this.grounded = grounded;
+            this.magnetized = magnetized;
         }
     }
 

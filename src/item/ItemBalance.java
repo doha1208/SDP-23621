@@ -24,10 +24,14 @@ final class ItemBalance {
 
     final long shieldDurationMillis;
     final int shieldCharges;
-    /** First-pickup bonus (rapid fire: extra shots per second, bullet speed: extra pixels per frame), max stacks, drop weight multiplier per stack. */
+    /**
+     * Run-wide stacks: first-pickup bonus (rapid fire: extra share of the base fire rate,
+     * bullet speed: extra pixels per frame per stack), max stacks, drop weight multiplier per stack.
+     * Spread adds one bullet lane per stack and pierce one extra enemy per stack.
+     */
     final double rapidFireBonus, bulletSpeedBonus;
-    final int rapidFireMaxStacks, bulletSpeedMaxStacks;
-    final double rapidFireDropDecay, bulletSpeedDropDecay;
+    final int rapidFireMaxStacks, bulletSpeedMaxStacks, spreadMaxStacks, pierceMaxStacks;
+    final double rapidFireDropDecay, bulletSpeedDropDecay, spreadDropDecay, pierceDropDecay;
     final long freezeDurationMillis;
     final long boostDurationMillis, scoreBoostDurationMillis;
     final double boostMultiplier, scoreBoostMultiplier;
@@ -38,13 +42,16 @@ final class ItemBalance {
     final double regularDropProbability, specialDropProbability;
     /** itemId → weight. Keeps registration order. */
     final Map<String, Double> dropWeights;
-    final double fallSpeed, dropWidth, dropHeight;
+    final double fallSpeed, horizontalSpeed, dropWidth, dropHeight;
+    final long directionChangeMillis;
+    /** Legacy LevelRules constructor value; drops no longer land or use a ground lifetime. */
     final long groundLifetimeMillis;
 
     final int inventoryCapacity;
 
     /** Equipped items: extra slots, and the magnet score for a drop it cannot keep, extra max lives, and extra active item time. */
     final int extraSlotsAmount, magnetConvertScore, maxLifeAmount;
+    final double magnetRange, magnetSpeed;
     final long longLastingExtraMillis;
 
     /** Default values (initial design values). */
@@ -77,12 +84,16 @@ final class ItemBalance {
     ItemBalance(Properties settings) {
         shieldDurationMillis = positiveLong(settings, "shield.durationMillis", 8_000L);
         shieldCharges = positiveInt(settings, "shield.charges", 1);
-        rapidFireBonus = positiveDouble(settings, "rapidFire.bonus", 0.5);
+        rapidFireBonus = positiveDouble(settings, "rapidFire.bonus", 0.35);
         rapidFireMaxStacks = positiveInt(settings, "rapidFire.maxStacks", 6);
         rapidFireDropDecay = probability(settings, "rapidFire.dropDecay", 0.7);
-        bulletSpeedBonus = positiveDouble(settings, "bulletSpeed.bonus", 1.5);
-        bulletSpeedMaxStacks = positiveInt(settings, "bulletSpeed.maxStacks", 6);
+        bulletSpeedBonus = positiveDouble(settings, "bulletSpeed.bonus", 1);
+        bulletSpeedMaxStacks = positiveInt(settings, "bulletSpeed.maxStacks", 3);
         bulletSpeedDropDecay = probability(settings, "bulletSpeed.dropDecay", 0.7);
+        spreadMaxStacks = positiveInt(settings, "spread.maxStacks", 4);
+        spreadDropDecay = probability(settings, "spread.dropDecay", 0.7);
+        pierceMaxStacks = positiveInt(settings, "pierce.maxStacks", 3);
+        pierceDropDecay = probability(settings, "pierce.dropDecay", 0.7);
         freezeDurationMillis = positiveLong(settings, "freeze.durationMillis", 4_000L);
         boostDurationMillis = positiveLong(settings, "boost.durationMillis", 7_000L);
         boostMultiplier = multiplier(settings, "boost.multiplier", 1.5);
@@ -101,11 +112,15 @@ final class ItemBalance {
         weights.put("shield", weight(settings, "drop.weight.shield"));
         weights.put("rapid_fire", weight(settings, "drop.weight.rapidFire"));
         weights.put("bullet_speed", weight(settings, "drop.weight.bulletSpeed"));
+        weights.put("spread", weight(settings, "drop.weight.spread"));
+        weights.put("pierce", weight(settings, "drop.weight.pierce"));
         weights.put("freeze", weight(settings, "drop.weight.freeze"));
         weights.put("boost", weight(settings, "drop.weight.boost"));
         weights.put("score_boost", weight(settings, "drop.weight.scoreBoost"));
         dropWeights = java.util.Collections.unmodifiableMap(weights);
         fallSpeed = positiveDouble(settings, "drop.fallSpeed", 80);
+        horizontalSpeed = positiveDouble(settings, "drop.horizontalSpeed", 65);
+        directionChangeMillis = positiveLong(settings, "drop.directionChangeMillis", 700L);
         dropWidth = positiveDouble(settings, "drop.width", 24);
         dropHeight = positiveDouble(settings, "drop.height", 24);
         groundLifetimeMillis = positiveLong(settings, "drop.groundLifetimeMillis", 8_000L);
@@ -114,6 +129,8 @@ final class ItemBalance {
 
         extraSlotsAmount = positiveInt(settings, "equip.extraSlots.amount", 1);
         magnetConvertScore = positiveInt(settings, "equip.magnet.convertScore", 50);
+        magnetRange = positiveDouble(settings, "equip.magnet.range", 140);
+        magnetSpeed = positiveDouble(settings, "equip.magnet.speed", 260);
         maxLifeAmount = positiveInt(settings, "equip.maxLife.amount", 1);
         longLastingExtraMillis = positiveLong(settings, "equip.longLasting.extraMillis", 3_000L);
     }

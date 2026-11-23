@@ -25,6 +25,7 @@ import java.util.logging.Logger;
 
 import engine.Core;
 import entity.Entity;
+import entity.Ship;
 import item.ItemAPI.*;
 
 /**
@@ -236,16 +237,15 @@ public final class ItemSystem {
     public ItemAPI api() { return api; }
 
     /**
-     * Starts a level. The drop area comes from the screen size and the player ship position (floor = bottom of the ship).
+     * Starts a level. Drops leave the play area only when fully below the screen bottom.
      * Ends the previous level first if it was not ended.
      */
-    public void beginLevel(int level, int screenWidth, Entity ship, GameHooks gameHooks) {
+    public void beginLevel(int level, int screenWidth, int screenHeight, Entity ship, GameHooks gameHooks) {
         hooks = ItemAPI.required(gameHooks, "hooks");
         ItemAPI.required(ship, "ship");
         endLevel();
         levelNumber = level;
-        double floorY = ship.getPositionY() + ship.getHeight();
-        LevelRules rules = new LevelRules("level-" + level, 0, screenWidth, PLAY_AREA_TOP, floorY,
+        LevelRules rules = new LevelRules("level-" + level, 0, screenWidth, PLAY_AREA_TOP, screenHeight,
             balance.fallSpeed, balance.dropWidth, balance.dropHeight, balance.groundLifetimeMillis,
             dropRules());
         manager.beginLevel(rules, lifePort);
@@ -258,6 +258,8 @@ public final class ItemSystem {
 
     /** Called only during active gameplay; pauseClock excludes suspended time. */
     public void update(Entity ship, boolean shipAvailable) {
+        // Spread/pierce reach the ship here, so the shared GameScreen needs no extra call.
+        if (ship instanceof Ship) ((Ship) ship).setWeaponMods(spreadCount(), pierceCount());
         if (!isLevelActive()) return;
         long now = System.nanoTime(), delta = 0;
         if (lastUpdateNanos < 0) lastUpdateNanos = now;
@@ -299,10 +301,10 @@ public final class ItemSystem {
         return result;
     }
 
-    /** Permanent fire rate bonus, in extra shots per second. */
+    /** Permanent fire rate bonus, in extra shots per second, not counting rapid fire (see fireRateBonus(double)). */
     public double fireRateBonus() { return api.getModifiers().fireRateBonus; }
 
-    /** Permanent bonus plus the temporary boost's extra shots per second, derived only from the base rate. */
+    /** Rapid fire's share of the base rate plus the temporary boost's extra shots per second. */
     public double fireRateBonus(double baseFireRate) {
         return api.getModifiers().fireRateBonus(baseFireRate);
     }
@@ -320,6 +322,12 @@ public final class ItemSystem {
 
     /** Item bullet speed bonus: extra pixels per frame, added on top of the base bullet speed. */
     public double bulletSpeedBonus() { return api.getModifiers().bulletSpeedBonus; }
+
+    /** Extra bullet lanes per shot from spread stacks. */
+    public int spreadCount() { return api.getModifiers().spreadCount; }
+
+    /** Extra enemies one bullet passes through, from pierce stacks. */
+    public int pierceCount() { return api.getModifiers().pierceCount; }
 
     /** The item equipped for this run, or null. Fixed when the run starts. */
     public ItemInfo equippedThisRun() {
@@ -468,6 +476,8 @@ public final class ItemSystem {
         Map<String, Double> decay = new java.util.LinkedHashMap<String, Double>();
         decay.put("rapid_fire", balance.rapidFireDropDecay);
         decay.put("bullet_speed", balance.bulletSpeedDropDecay);
+        decay.put("spread", balance.spreadDropDecay);
+        decay.put("pierce", balance.pierceDropDecay);
         Map<DropSource, DropRule> rules = new EnumMap<DropSource, DropRule>(DropSource.class);
         rules.put(DropSource.REGULAR_ENEMY, new DropRule(balance.regularDropProbability, weights, decay));
         rules.put(DropSource.SPECIAL_ENEMY, new DropRule(balance.specialDropProbability, weights, decay));
@@ -481,6 +491,8 @@ public final class ItemSystem {
             case SHIELD: return Color.CYAN;
             case RAPID_FIRE: return Color.ORANGE;
             case BULLET_SPEED: return Color.YELLOW;
+            case SPREAD: return new Color(0, 160, 255);
+            case PIERCE: return new Color(190, 90, 255);
             case FREEZE: return new Color(150, 150, 255);
             case BOOST: return new Color(100, 255, 100);
             case SCORE_BOOST: return new Color(255, 100, 200);
