@@ -7,6 +7,7 @@ import java.util.Set;
 import engine.Core;
 import engine.GameSettings;
 import engine.GameState;
+import engine.soundEngine.SoundManager;
 import entity.Bullet;
 import entity.BulletPool;
 import entity.Ship;
@@ -19,6 +20,7 @@ import entity.enemy.SpawnRequest;
 import item.ItemAPI;
 import item.ItemSystem;
 import screen.GameScreen;
+import screen.Screen;
 
 /**
  * Standalone checks for the bullet upgrade items (Team CS): spread, pierce,
@@ -106,6 +108,7 @@ public final class WeaponUpgradeTest {
 
     public static void main(String[] args) throws Exception {
         Core.getLogger().setUseParentHandlers(false);
+        SoundManager.getInstance().setMuted(true);
 
         // Rapid fire: same share of the base rate for every ship.
         Ship standard = new Ship(200, 500, Ship.ShipType.STANDARD);
@@ -169,6 +172,9 @@ public final class WeaponUpgradeTest {
         GameScreen screen = new GameScreen(new GameState(1, 0, 3, 0, 0, 0),
             new GameSettings(5, 2, 60, 2000), false, 448, 520, 60);
         screen.initialize();
+        Field inputDelay = Screen.class.getDeclaredField("inputDelay");
+        inputDelay.setAccessible(true);
+        inputDelay.set(screen, Core.getCooldown(0));
 
         // A 1-pierce bullet goes through one enemy of a column and stops at the next.
         EnemyManager manager = waveManager(screen, 15);

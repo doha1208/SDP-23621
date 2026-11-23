@@ -15,7 +15,7 @@ public final class TimedRun {
 
 	/** Call once per frame, including pauses/countdowns. Death wins ties. */
 	public void update(final long now, final boolean active, final int lives,
-			final boolean bossDefeated) {
+			final boolean bossFinished) {
 		if (isFinished())
 			return;
 		if (lives <= 0) {
@@ -30,7 +30,7 @@ public final class TimedRun {
 			this.counting = active;
 			if (this.elapsed >= DURATION)
 				this.phase = Phase.BOSS;
-		} else if (active && bossDefeated) {
+		} else if (active && bossFinished) {
 			this.phase = Phase.WON;
 		}
 	}

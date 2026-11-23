@@ -11,16 +11,19 @@ team's two bosses is selected using its existing stage-five balance. Its own
 summoned enemies and attacks remain enabled. There is no intermediate cash-out.
 The same ship, lives, score, inventory and active effects continue into the boss.
 
-A fatal hit wins a simultaneous timer/defeat boundary. A terminal result stops
-further collisions and awards clear rewards once. Victory banks pending diamonds;
+A fatal hit wins a simultaneous timer/defeat boundary. On a boss kill, the defeat
+animation clears the boss hazards, bullets and summons before the run ends.
+A terminal result stops further collisions and awards clear rewards once. Victory banks pending diamonds;
 death forfeits them. Pause → Quit to menu discards pending diamonds and returns
 directly to the menu. Already-collected coins follow the existing persistence rule.
 Pause → Restart starts the whole run again and refunds this attempt's coins;
 temporary inventory/effects are reset while purchased equipment is reapplied.
 
-The default run counts as one completed level and awards one clear diamond;
-it does not pretend that the old ten stages were completed. Existing stage
-diagnostics (`-Dgame.startLevel=2` through `10`) remain available to other teams.
+The default run counts as one completed level and awards one clear diamond.
+A full timed clear counts as a campaign win for Infinity Void and Fleet Master.
+Fleet Master still requires a clear with every ship and accepts saved stage 10
+clears. Existing stage diagnostics (`-Dgame.startLevel=2` through `10`) keep
+their stage-based rewards and cash-out screen.
 `-Dinvaders.bossOrder=fortress` or `raider` selects the boss for verification.
 `-Dinvaders.levelSeed=1` keeps enemy and boss randomness repeatable.
 
@@ -52,7 +55,8 @@ and simultaneous death, post-clear damage, idempotent settlement, restart
 cleanup and quit-to-menu. The existing `TwoHitEnemyTest`, `FinalBossAttackTest`
 and `EffectIntegrationTest` now use the current main versions. Collision
 fixtures explicitly finish the countdown before shooting; the countdown
-guard itself remains enabled in production. All standalone tests mute audio.
+guard remains enabled in production. The item pierce and dash collision
+fixtures also end their countdown before exercising live combat.
 
 The extended timed-run test also drives both real boss implementations through
 the game's collision/reward/clear/restart path, exercises movement and pause
@@ -66,19 +70,24 @@ Pass a directory to `TimedRunTest` to export those rendered frames:
 java '-Djava.awt.headless=true' -cp "tmp/timed-run-test/bin;res" TimedRunTest tmp/timed-run-frames
 ```
 
-JDK 17 verification on 2026-11-13 passed with no compiler warnings:
+JDK 17 verification on 2026-11-24 passed with no compiler warnings:
 
 | Suite | Checks |
 | --- | ---: |
-| TimedRunTest | 80 |
+| TimedRunTest | 93 |
 | TwoHitEnemyTest | 166 |
 | FinalBossAttackTest (legacy boss/bullet checks) | 124 |
 | EffectIntegrationTest | 77 |
 | GameplayStarfieldTest | 29 |
-| Total | 476 |
+| WeaponUpgradeTest | 44 |
+| DashDodgeTest | 31 |
+| ShipVerticalMoveTest | 17 |
+| DashVisualEffectTest | 61 |
+| ShipDashTest | 77 |
+| Total | 719 |
 
-CI runs each suite in its own build/save directory. The starfield suite now
-supports headless rendering; its display-based invocation still works.
+CI runs seven gameplay suites in isolated build/save directories. All ten
+suites above were run locally with headless graphics and muted audio.
 
 ## Render evidence
 
@@ -88,18 +97,18 @@ not captures of a desktop window or evidence of manual play:
 - [Combat and HUD](screenshots/timed-run-combat.png)
 - [Pause](screenshots/timed-run-pause.png)
 - [Fortress boss](screenshots/timed-run-fortress.png)
+- [Fortress defeat animation](screenshots/timed-run-fortress-defeat.png)
 - [Raider boss](screenshots/timed-run-raider.png)
 - [Clear result](screenshots/timed-run-clear-fortress.png)
 
 ## Integration status
 
-Merged team main `afff2b9` into this branch on 2026-11-13. It contains the
-merged entity-team PRs #1–#4, scrolling background #6 and ship sprites #8.
-Their latest boss fixes, collision rules, background and sprites are preserved;
-the PR diff against main contains the level-team work and regression support.
-The independent item-team PR #7 remains outside this change.
+Merged team main `04e9dc5` into this branch on 2026-11-24. In addition to the
+earlier entity, background and ship updates, it includes weapon upgrades (#7),
+tutorial practice (#9), dash preview (#11), item drops and attraction (#10),
+vertical movement (#12) and dash dodge (#16).
 
-Compilation, all five automated suites and offscreen rendering are complete.
+Compilation, all ten automated suites and offscreen rendering are complete.
 Team review/approval and a manual playthrough on a permitted test desktop are
 still pending. No local desktop window, keyboard/mouse automation or audible
 playback was used. Native focus/input, audio and a human end-to-end playthrough

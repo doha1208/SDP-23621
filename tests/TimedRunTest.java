@@ -118,6 +118,7 @@ public final class TimedRunTest {
     private static void integrationChecks() throws Exception {
         GameScreen game = game();
         ItemSystem items = (ItemSystem) get(game, "items");
+        double baseFireRate = ((Ship)get(game, "ship")).getBaseFireRate();
         call(game, "updateState");
         check(((TimedRun)get(game, "timedRun")).remainingSeconds() == 120,
                 "Screen countdown does not consume combat time");
@@ -159,7 +160,7 @@ public final class TimedRunTest {
         check(game.getGameState().getLivesRemaining() == 2
                 && game.getGameState().getScore() == 123, "Life and score preserved");
         check(get(game, "items") == items && items.api().getView().slots.get(0) != null
-                && items.fireRateBonus() > 0 && items.enemiesFrozen(), "Items and effects preserved");
+                && items.fireRateBonus(baseFireRate) > 0 && items.enemiesFrozen(), "Items and effects preserved");
         check(((EnemyManager)get(game, "enemyManager")).isEmpty()
                 && ((EnemyManager)get(game, "enemyManager")).getBullets().isEmpty()
                 && bullets.isEmpty(), "Old enemies/bullets removed");
@@ -172,9 +173,22 @@ public final class TimedRunTest {
         call(game, "updateState");
         check(((RandomDirector)get(game, "levelDirector")).getFrame() == directorFrame,
                 "Normal director stops during boss fight");
-        set(game, "boss", new DefeatedBoss());
+        DefeatedBoss defeated = new DefeatedBoss();
+        set(game, "boss", defeated);
         call(game, "updateState");
-        check((Boolean)get(game, "levelFinished"), "Boss defeat finalizes run");
+        check(!(Boolean)get(game, "levelFinished"), "Boss explosion keeps the run active");
+        check(game.getGameState().getLevelsCompletedRun() == 0, "No rewards before the explosion ends");
+        defeated.finished = true;
+        call(game, "updateState");
+        check((Boolean)get(game, "levelFinished"), "Finished boss explosion finalizes run");
+        AchievementManager achievements = Core.getAchievementManager();
+        check(achievements.getAchievements().stream().anyMatch(a ->
+                a.getId().equals("infinity_void") && a.isUnlocked()), "Timed clear unlocks Infinity Void");
+        check(achievements.getLevel10CompletedShipCount() == 1,
+                "Timed clear counts for the winning ship in Fleet Master");
+        check(achievements.getAchievements().stream().noneMatch(a ->
+                a.getId().equals(AchievementManager.LEVEL10_ALL_SHIPS_ID) && a.isUnlocked()),
+                "A single ship clear does not unlock Fleet Master");
         GameState cleared = game.getGameState();
         call(game, "hitPlayer"); call(game, "updateState");
         check(game.getGameState().getLivesRemaining() == cleared.getLivesRemaining(),
@@ -194,7 +208,7 @@ public final class TimedRunTest {
         call(game, "restartLevel");
         check(listeners.get(GameEvents.Type.PLAYER_HIT).size() == listenerCount,
                 "Restart does not leak event listeners");
-        check(get(game, "items") != items && ((ItemSystem)get(game, "items")).fireRateBonus() == 0
+        check(get(game, "items") != items && ((ItemSystem)get(game, "items")).fireRateBonus(baseFireRate) == 0
                 && ((ItemSystem)get(game, "items")).api().getView().slots.stream().allMatch(i -> i == null),
                 "Restart resets inventory and effects");
         check(get(game, "boss") == null && ((TimedRun)get(game, "timedRun")).remainingSeconds() == 120
@@ -228,13 +242,15 @@ public final class TimedRunTest {
     }
 
     private static final class DefeatedBoss implements BossFight {
+        private boolean finished;
+
         public void update(EnemyManager enemies, double x, double y, boolean frozen) { }
         public BossHit hit(Entity bullet) { return null; }
         public boolean hurts(Entity ship) { return false; }
         public void draw(DrawManager drawManager) { }
         public void stop() { }
         public boolean isDefeated() { return true; }
-        public boolean isFinished() { return false; }
+        public boolean isFinished() { return this.finished; }
         public int getHealth() { return 0; }
         public int getMaxHealth() { return 100; }
         public String getName() { return "test boss"; }
@@ -303,10 +319,24 @@ public final class TimedRunTest {
                 check(boss.isDefeated(), "Real collision path defeats " + kind);
                 check(game.getGameState().getShipsDestroyed() == killsBefore + 1,
                         "Only the boss defeat counts as a kill: " + kind);
+                EnemyManager enemies = (EnemyManager)get(game, "enemyManager");
+                Enemy helper = enemies.spawn(SpawnRequest.of(EnemyType.NORMAL), 150, 200).get(0);
+                enemies.getBullets().add(new EnemyBullet(200, 300, 0, 2));
                 call(game, "update");
+                check(!boss.isFinished() && !(Boolean)get(game, "levelFinished"),
+                        "Defeat animation advances before results: " + kind);
+                check(helper.isDestroyed() && enemies.getBullets().isEmpty(),
+                        "Defeat animation removes summoned enemies and bullets: " + kind);
+                if (kind.equals("fortress")) {
+                    for (int i = 0; i < 10; i++) call(game, "updateState");
+                    render(game, directory, "timed-run-fortress-defeat");
+                }
+                for (int i = 0; i < 120 && !boss.isFinished(); i++) call(game, "updateState");
                 check((Boolean)get(game, "levelFinished")
                         && ((TimedRun)get(game, "timedRun")).getPhase() == TimedRun.Phase.WON,
-                        "Real boss defeat clears run: " + kind);
+                        "Real boss explosion completes before run clears: " + kind);
+                check(Core.getAchievementManager().getLevel10CompletedShipCount() == 1,
+                        "Same ship only counts once: " + kind);
                 check(game.getGameState().getScore() > scoreBefore, "Boss gives score: " + kind);
                 int finalScore = game.getGameState().getScore();
                 call(game, "manageCollisions"); call(game, "update");

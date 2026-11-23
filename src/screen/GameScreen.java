@@ -655,22 +655,21 @@ public class GameScreen extends Screen {
 				this.pendingDiamonds += this.level;
 				collectRemainingCoins();
 				this.pendingDiamonds += this.meteors.collectRemaining(); // VFX TEAM (Effection): collects remaining diamonds from the meteor and adds them to pending
+				// A timed clear counts as a campaign win for the existing achievements.
+				int achievementLevel = this.timedRunMode ? Core.getNumLevels() : this.level;
+				String shipId = Core.getShipId(this.ship.getType());
 				showUnlockedAchievements(Core.getAchievementManager()
 						.recordFlawlessLevelCompleted(this.tookDamage));
 				showUnlockedAchievement(Core.getAchievementManager()
-						.recordLevelCompleted(this.level));
+						.recordLevelCompleted(achievementLevel));
                 showUnlockedAchievement(Core.getAchievementManager().recordRunCoins(this.coinsCollected));
 
 				showUnlockedAchievement(Core.getAchievementManager()
-						.recordLevelCompleted(
-								this.level,
-								Core.getShipId(this.ship.getType()),
-								true));
+						.recordLevelCompleted(achievementLevel, shipId, true));
 
-				// Last level cleared alive: the game is beaten.
-				if (this.timedRunMode || this.level == Core.getNumLevels())
+				if (achievementLevel == Core.getNumLevels())
 					showUnlockedAchievement(Core.getAchievementManager()
-							.recordGameWon(Core.getSelectedShipId()));
+							.recordGameWon(shipId));
 			}
 		}
 
@@ -685,7 +684,7 @@ public class GameScreen extends Screen {
 	private void updateRunProgress(final long now) {
 		TimedRun.Phase before = this.timedRun.getPhase();
 		this.timedRun.update(now, this.inputDelay.checkFinished(), this.lives,
-				this.boss != null && this.boss.isDefeated());
+				this.boss != null && this.boss.isFinished());
 		if (before == TimedRun.Phase.COMBAT
 				&& this.timedRun.getPhase() == TimedRun.Phase.BOSS) {
 			// Remove ordinary enemies/hazards without treating them as kills.

@@ -165,21 +165,23 @@ public final class Core {
 					}
 				}
 				// Game & score.
+				GameScreen gameScreen;
 				do {
 					// One extra live every few levels.
 					boolean bonusLife = gameState.getLevel()
 							% EXTRA_LIFE_FRECUENCY == 0
 							&& gameState.getLivesRemaining() < MAX_LIVES;
 					
-					currentScreen = new GameScreen(gameState,
+					gameScreen = new GameScreen(gameState,
 							gameSettings.get(gameState.getLevel() - 1),
 							bonusLife, width, height, FPS, timedRun);
+					currentScreen = gameScreen;
 					LOGGER.info("Starting " + WIDTH + "x" + HEIGHT
 							+ " game screen at " + FPS + " fps.");
 					frame.setScreen(currentScreen);
 					LOGGER.info("Closing game screen.");
 
-					gameState = ((GameScreen) currentScreen).getGameState();
+					gameState = gameScreen.getGameState();
 					if (timedRun)
 						break; // The boss ends the run; no stage loop or intermediate cash-out.
 
@@ -196,7 +198,7 @@ public final class Core {
 
 				} while (gameState.getLivesRemaining() > 0
 						&& gameState.getLevel() <= NUM_LEVELS);
-				if (((GameScreen) currentScreen).didQuit()) {
+				if (gameScreen.didQuit()) {
 					returnCode = 1;
 					break;
 				}
