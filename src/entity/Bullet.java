@@ -28,6 +28,11 @@ public class Bullet extends Entity {
 	private int speedX;
 	/** Extra enemies this bullet may pass through (pierce item, Team CS). */
 	private int pierce;
+	/**
+	 * Whether the bullet goes on through every enemy it overlaps, like the
+	 * big-bullet ship's shots (Team CS). Set per ship, not by bullet size.
+	 */
+	private boolean piercing;
 	/** Enemies this bullet has already hit, so it hits each one only once. */
 	private final Set<Object> hitTargets = Collections
 			.newSetFromMap(new IdentityHashMap<Object, Boolean>());
@@ -137,6 +142,19 @@ public class Bullet extends Entity {
 		this.pierce = Math.max(0, pierce);
 	}
 
+	/**
+	 * @param piercing
+	 *            True if the bullet goes on through every enemy it overlaps.
+	 */
+	public final void setPiercing(final boolean piercing) {
+		this.piercing = piercing;
+	}
+
+	/** @return True if the bullet goes on through every enemy it overlaps. */
+	public final boolean isPiercing() {
+		return this.piercing;
+	}
+
 	/** @return Extra enemies the bullet may pass through. */
 	public final int getPierce() {
 		return this.pierce;
@@ -176,6 +194,7 @@ public class Bullet extends Entity {
 	/** Forgets pierce state, for a bullet reused from the pool. */
 	final void resetHits() {
 		this.pierce = 0;
+		this.piercing = false;
 		this.hitTargets.clear();
 		this.hitThisFrame = false;
 	}
