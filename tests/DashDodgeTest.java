@@ -12,11 +12,13 @@ import engine.DashVisualEffect;
 import engine.DrawManager;
 import engine.GameSettings;
 import engine.GameState;
+import engine.soundEngine.SoundManager;
 import entity.Bullet;
 import entity.Ship;
 import entity.enemy.EnemyBullet;
 import entity.enemy.EnemyManager;
 import screen.GameScreen;
+import screen.Screen;
 
 /**
  * Dash dodge inside a real GameScreen (Team CS): Shift dashes the way the
@@ -57,7 +59,7 @@ public final class DashDodgeTest {
 
     /** One frame of dash input; true if the dash moved the ship. */
     private static boolean frame(GameScreen game, boolean left, boolean right) throws Exception {
-        return (Boolean) call(game, "updateDash", new Class[] { boolean.class, boolean.class },
+        return (Boolean) call(game, "updateDash", new Class<?>[] { boolean.class, boolean.class },
                 left, right);
     }
 
@@ -93,6 +95,7 @@ public final class DashDodgeTest {
 
     public static void main(String[] args) throws Exception {
         Core.getLogger().setUseParentHandlers(false);
+        SoundManager.getInstance().setMuted(true);
         GameSettings settings = (GameSettings) field(Core.class, "SETTINGS_LEVEL_6").get(null);
         GameScreen game = new GameScreen(new GameState(6, 0, 3, 0, 0, 0), settings, false, 448, 520, 60);
         game.initialize();
@@ -143,11 +146,11 @@ public final class DashDodgeTest {
         shift(true);
         int most = 0;
         while (frame(game, false, false)) {
-            call(game, "updateDashEffect", new Class[] {});
+            call(game, "updateDashEffect", new Class<?>[] {});
             most = Math.max(most, look.getGhostCount());
         }
         check(most > 0 && most <= 3, "Dash leaves up to three afterimages, got " + most);
-        for (int i = 0; i < 10; i++) call(game, "updateDashEffect", new Class[] {});
+        for (int i = 0; i < 10; i++) call(game, "updateDashEffect", new Class<?>[] {});
         check(look.getGhostCount() == 0, "Afterimages fade after the dash");
         shift(false);
 
@@ -155,33 +158,34 @@ public final class DashDodgeTest {
         for (int i = 0; i < 45; i++) frame(game, false, false); // half charged
         int barY = ship.getPositionY() + ship.getHeight() + 3;
         BufferedImage image = canvas();
-        call(game, "drawDashCharge", new Class[] {});
+        call(game, "drawDashCharge", new Class<?>[] {});
         int filled = image.getRGB(ship.getPositionX(), barY);
         int empty = image.getRGB(ship.getPositionX() + ship.getWidth() - 1, barY);
         check((filled & 0xFFFFFF) != 0 && (empty & 0xFFFFFF) != 0 && filled != empty,
                 "Charge bar shows a filled and an empty part");
         recharge(game);
         image = canvas();
-        call(game, "drawDashCharge", new Class[] {});
+        call(game, "drawDashCharge", new Class<?>[] {});
         check((image.getRGB(ship.getPositionX(), barY) & 0xFFFFFF) == 0, "No bar once the dash is ready");
 
         // If the level ends mid-dash, the frozen trail and the bar are not drawn.
         shift(true);
         frame(game, false, false);
-        call(game, "updateDashEffect", new Class[] {});
+        call(game, "updateDashEffect", new Class<?>[] {});
         field(GameScreen.class, "levelFinished").set(game, true);
         image = canvas();
-        call(game, "drawDashTrail", new Class[] {});
-        call(game, "drawDashCharge", new Class[] {});
+        call(game, "drawDashTrail", new Class<?>[] {});
+        call(game, "drawDashCharge", new Class<?>[] {});
         check(blank(image), "No dash trail after the level ends");
         field(GameScreen.class, "levelFinished").set(game, false);
         image = canvas();
-        call(game, "drawDashTrail", new Class[] {});
+        call(game, "drawDashTrail", new Class<?>[] {});
         check(!blank(image), "Dash trail is drawn while the level runs");
         while (frame(game, false, false)) { }
         shift(false);
 
         // While dashing, bullets on the ship fly on and take no life.
+        field(Screen.class, "inputDelay").set(game, Core.getCooldown(0));
         recharge(game);
         ship.setPositionX(200);
         int lives = (Integer) field(GameScreen.class, "lives").get(game);
@@ -195,7 +199,7 @@ public final class DashDodgeTest {
         for (int i = 1; i < DASH_FRAMES; i++)
             check(frame(game, false, false), "Still dashing in frame " + i);
         EnemyBullet aimed = onShip(ship, enemyBullets, bullets);
-        call(game, "manageCollisions", new Class[] {});
+        call(game, "manageCollisions", new Class<?>[] {});
         check((Integer) field(GameScreen.class, "lives").get(game) == lives, "Dash dodges bullets");
         check(!ship.isDestroyed(), "Ship is not destroyed while dashing");
         check(enemyBullets.contains(aimed) && bullets.size() == 1, "Dodged bullets fly on");
@@ -205,10 +209,10 @@ public final class DashDodgeTest {
         enemyBullets.clear();
         bullets.clear();
         onShip(ship, enemyBullets, bullets);
-        call(game, "manageCollisions", new Class[] {});
+        call(game, "manageCollisions", new Class<?>[] {});
         check((Integer) field(GameScreen.class, "lives").get(game) == lives - 1, "Hit lands after the dash");
         check(ship.isDestroyed(), "Ship explodes after the dash");
-        call(game, "updateDashEffect", new Class[] {});
+        call(game, "updateDashEffect", new Class<?>[] {});
         check(look.getGhostCount() == 0, "No dash look while the ship is destroyed");
         shift(false);
 

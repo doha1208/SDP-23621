@@ -250,7 +250,10 @@ public final class ItemSystem {
         logger.info("Item system started level " + level + ".");
     }
 
-    /** Called every frame. Measures elapsed time itself. No pickup/use when shipAvailable=false. */
+    /** Exclude pauses/countdowns from effect and drop timers. */
+	public void pauseClock() { lastUpdateNanos = -1; }
+
+    /** Called only during active gameplay; pauseClock excludes suspended time. */
     public void update(Entity ship, boolean shipAvailable) {
         // Spread/pierce reach the ship here, so the shared GameScreen needs no extra call.
         if (ship instanceof Ship) ((Ship) ship).setWeaponMods(spreadCount(), pierceCount());
@@ -267,9 +270,6 @@ public final class ItemSystem {
         manager.update(delta, new PlayerSnapshot(bounds, shipAvailable, shipAvailable));
         feedback.checkFullInventory(api.getView(), bounds, shipAvailable);
     }
-
-    /** Discards elapsed wall time while the game is paused; effects resume at their saved duration. */
-    public void suspendClock() { lastUpdateNanos = -1; }
 
     /** Called when an enemy is defeated. Rolls a drop at the enemy's center. */
     public void onEnemyDefeated(Entity enemy, boolean special) {

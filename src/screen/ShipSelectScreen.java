@@ -5,6 +5,7 @@ import java.awt.Rectangle;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.ToDoubleFunction;
 
 import engine.Core;
 import engine.DrawManager.SpriteType;
@@ -72,9 +73,20 @@ public class ShipSelectScreen extends Screen {
 	private static final int PREVIEW_HEIGHT = 88;
 	/** Size of one sprite pixel of the ship while effects play. */
 	private static final int EFFECT_PREVIEW_PIXEL = 4;
-	/** Highest speed and fire rate among the ships, for the stat bars. */
-	private static final double MAX_SPEED = maxSpeed();
-	private static final double MAX_FIRE_RATE = maxFireRate();
+	/** Stat columns: gap between them, label width and value width. */
+	private static final int STAT_COLUMN_GAP = 12;
+	private static final int STAT_LABEL_WIDTH = 78;
+	private static final int STAT_VALUE_WIDTH = 40;
+	/** Highest value of each stat among the ships, for the stat bars. */
+	private static final double MAX_SPEED = maxOf(ShipType::getSpeed);
+	private static final double MAX_FIRE_RATE =
+			maxOf(ShipSelectScreen::fireRate);
+	private static final double MAX_BULLETS =
+			maxOf(ShipType::getBulletsPerShot);
+	private static final double MAX_BULLET_SPEED =
+			maxOf(ShipType::getBulletSpeed);
+	private static final double MAX_BULLET_AREA =
+			maxOf(ShipSelectScreen::bulletArea);
 
 	/** Keys watched for presses (not holds). */
 	private static final int[] KEYS = { KeyEvent.VK_LEFT, KeyEvent.VK_RIGHT,
@@ -754,18 +766,27 @@ public class ShipSelectScreen extends Screen {
 		int lineHeight = drawManager.getSmallLineHeight();
 		int y = last.y + last.height + 22;
 
+		// Two columns, so five stats take the height three used to and the
+		// text below still clears the key hints.
 		ShipType type = this.availableShips[this.shipIndex];
-		double fireRate = type.getBulletsPerShot() * 1000.0
-				/ type.getShootingInterval();
+		int step = lineHeight + 4;
+		int column = (this.width - MARGIN * 2 - STAT_COLUMN_GAP) / 2;
+		int right = MARGIN + column + STAT_COLUMN_GAP;
 		drawStat("SPEED", type.getSpeed() / MAX_SPEED,
-				Integer.toString(type.getSpeed()), y);
-		drawStat("SHOTS PER SEC", fireRate / MAX_FIRE_RATE,
-				String.format("%.2f", fireRate), y + lineHeight + 4);
-		drawStat("BULLETS", type.getBulletsPerShot() / 2.0,
-				Integer.toString(type.getBulletsPerShot()),
-				y + (lineHeight + 4) * 2);
+				Integer.toString(type.getSpeed()), MARGIN, column, y);
+		drawStat("SHOTS/SEC", fireRate(type) / MAX_FIRE_RATE,
+				String.format("%.2f", fireRate(type)), MARGIN, column,
+				y + step);
+		drawStat("BULLETS", type.getBulletsPerShot() / MAX_BULLETS,
+				Integer.toString(type.getBulletsPerShot()), MARGIN, column,
+				y + step * 2);
+		drawStat("BULLET SPD", type.getBulletSpeed() / MAX_BULLET_SPEED,
+				Integer.toString(type.getBulletSpeed()), right, column, y);
+		drawStat("BULLET SIZE", bulletArea(type) / MAX_BULLET_AREA,
+				type.getBulletWidth() + "x" + type.getBulletHeight(), right,
+				column, y + step);
 
-		y += (lineHeight + 4) * 3 + 14;
+		y += step * 3 + 14;
 		String status;
 		Color color;
 		if (this.row == Row.EFFECT && browsedEffect() != null
@@ -847,11 +868,13 @@ public class ShipSelectScreen extends Screen {
 		return text.toString();
 	}
 
+	/** One stat: label, bar and value inside a column starting at left. */
 	private void drawStat(final String label, final double ratio,
-						  final String value, final int baseline) {
-		int barLeft = MARGIN + 120;
-		int barWidth = this.width - MARGIN * 2 - 120 - 40;
-		drawManager.drawSmallString(label, MARGIN + 4, baseline, Color.GRAY);
+						  final String value, final int left, final int width,
+						  final int baseline) {
+		int barLeft = left + STAT_LABEL_WIDTH;
+		int barWidth = width - STAT_LABEL_WIDTH - STAT_VALUE_WIDTH;
+		drawManager.drawSmallString(label, left + 4, baseline, Color.GRAY);
 		drawManager.drawBox(barLeft, baseline - 8, barWidth, 8, BORDER);
 		drawManager.fillBox(barLeft + 1, baseline - 7,
 				(int) Math.round((barWidth - 1) * Math.min(1, ratio)), 7,
@@ -887,18 +910,21 @@ public class ShipSelectScreen extends Screen {
 		return lines;
 	}
 
-	private static double maxSpeed() {
-		double max = 1;
-		for (ShipType type : ShipType.values())
-			max = Math.max(max, type.getSpeed());
-		return max;
+	/** Bullets per second, counting every barrel. */
+	private static double fireRate(final ShipType type) {
+		return type.getBulletsPerShot() * 1000.0 / type.getShootingInterval();
 	}
 
-	private static double maxFireRate() {
-		double max = 0.1;
+	/** Bullet area in px, so the size bar grows with width and height. */
+	private static double bulletArea(final ShipType type) {
+		return type.getBulletWidth() * type.getBulletHeight();
+	}
+
+	/** Highest value of a stat among all ship types. */
+	private static double maxOf(final ToDoubleFunction<ShipType> stat) {
+		double max = 0;
 		for (ShipType type : ShipType.values())
-			max = Math.max(max, type.getBulletsPerShot() * 1000.0
-					/ type.getShootingInterval());
+			max = Math.max(max, stat.applyAsDouble(type));
 		return max;
 	}
 }

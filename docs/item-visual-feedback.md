@@ -1,6 +1,6 @@
 # 아이템 디자인·피드백 구현
 
-담당 범위: 디자인팀 A 손동열. 현재 기준 코드: origin/main `04e9dc5`.
+담당 범위: 디자인팀 A 손동열. 현재 기준 코드: origin/main `0c5ac62`.
 배경·우주선·게임 수치는 기존 구현을 사용한다.
 
 ## 변경 사항
@@ -39,11 +39,11 @@ java -cp "$check_root/classes:res" item.ItemVisualGameTest "$check_root/screensh
 
 ## 확인 결과와 범위
 
-2026-11-21 리뷰 반영: 최신 main의 아이템 드롭·세로 이동·대시 변경을 병합했다. `beginLevel`의 화면 높이 인자가 빠져 전체 테스트 컴파일이 실패하는 것을 확인하고, 테스트 호출에 높이 520을 전달하도록 수정했다.
+2026-11-25 충돌 해결: 최신 main의 시간제 전투·보스 진행 및 기체별 탄환 설정을 병합했다. CI는 아이템 피드백 검사와 main의 게임 회귀 검사를 모두 유지한다. 일시정지 시계는 main의 `pauseClock()`으로 통일해 전투 타이머의 정지 처리와 함께 작동한다.
 
-CI build 작업은 `src`와 `tests`를 함께 컴파일하고 `ItemVisualFeedbackTest`도 headless 모드로 실행한다. 앞으로 게임 코드와 테스트의 API가 달라지면 CI에서 실패한다.
+11월 21일 리뷰에서 발견된 `beginLevel`의 화면 높이 인자 누락 수정도 유지한다. CI build는 `src`와 `tests`를 함께 컴파일해 같은 API 불일치를 검출한다.
 
-Java 17 대상 전체 소스·테스트 컴파일과 11개 테스트의 704개 검증 항목이 통과했다. 최신 main에서 들어온 `DashDodgeTest`의 raw `Class` 사용에 대한 기존 경고 12개는 남아 있으며 이번 수정에서 변경하지 않았다. 검증 항목은 DashVisualEffect 61, EffectIntegration 77, FinalBoss 124, TwoHit 166, WeaponUpgrade 44, ShipVerticalMove 17, ShipDash 77, DashDodge 31, ItemVisualFeedback 55, GameplayStarfield 29, ItemVisualGame 23이다.
+Java 17 대상 전체 소스·테스트 컴파일이 경고 없이 성공했고, 13개 테스트에서 894개 검증 항목이 통과했다. DashVisualEffect 61, EffectIntegration 77, FinalBoss 124, TwoHit 168, WeaponUpgrade 44, ShipVerticalMove 17, ShipDash 77, ShipStats 95, DashDodge 31, TimedRun 93, ItemVisualFeedback 55, GameplayStarfield 29, ItemVisualGame 23이다.
 
 실제 GameScreen의 렌더링·일시정지 복귀 검사도 디스플레이 환경에서 재실행했다. 아래 화면 예시는 최초 구현 당시 생성한 것이며 새 게임 상태에서도 아이콘·HUD 표시를 확인했다. 키보드로 조작하는 수동 플레이 및 리뷰 승인 여부와는 구분한다.
 

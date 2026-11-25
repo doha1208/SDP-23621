@@ -41,6 +41,8 @@ public final class RandomDirector implements LevelDirector {
 	private final Random random;
 	/** Frames the stage spawns enemies for. */
 	private final int durationFrames;
+	/** False when the enclosing timed run owns the spawn deadline. */
+	private final boolean stopAtDuration;
 	/** Active frames so far. */
 	private int frame;
 	/** Frame of the next allowed spawn. */
@@ -59,8 +61,15 @@ public final class RandomDirector implements LevelDirector {
 	 * @param random   Random source.
 	 */
 	public RandomDirector(final StageSettings settings, final Random random) {
+		this(settings, random, true);
+	}
+
+	/** The timed run uses the duration for pressure, but stops spawning itself. */
+	public RandomDirector(final StageSettings settings, final Random random,
+			final boolean stopAtDuration) {
 		this.settings = settings;
 		this.random = random;
+		this.stopAtDuration = stopAtDuration;
 		this.durationFrames = Math.max(1, (int) Math.round(settings.getDuration() * FPS));
 		this.nextSpawnFrame = (int) Math.round(settings.getStartDelay() * FPS);
 	}
@@ -94,7 +103,7 @@ public final class RandomDirector implements LevelDirector {
 
 	@Override
 	public boolean isFinished() {
-		return this.frame >= this.durationFrames;
+		return this.stopAtDuration && this.frame >= this.durationFrames;
 	}
 
 	/** @return Pressure allowed on screen right now. */

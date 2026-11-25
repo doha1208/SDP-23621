@@ -154,7 +154,7 @@ public final class ItemVisualFeedbackTest {
             "Painting preserves the queued item-use event for sound/achievements");
         check(queued.size() == 3, "Painting adds no duplicate grant/use/start events");
         long remaining = items.shield().remainingMillis;
-        items.suspendClock();
+        items.pauseClock();
         Thread.sleep(30);
         items.update(ship, true);
         check(items.shield().remainingMillis == remaining, "Paused elapsed time does not expire effects on resume");

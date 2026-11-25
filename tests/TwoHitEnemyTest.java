@@ -19,6 +19,7 @@ import entity.enemy.EnemyType;
 import entity.enemy.MovePattern;
 import entity.enemy.SpawnRequest;
 import screen.GameScreen;
+import screen.Screen;
 
 /** Standalone regression checks; run with isolated build/profile files. */
 public final class TwoHitEnemyTest {
@@ -53,6 +54,7 @@ public final class TwoHitEnemyTest {
 
     public static void main(String[] args) throws Exception {
         Core.getLogger().setUseParentHandlers(false);
+        engine.soundEngine.SoundManager.getInstance().setMuted(true);
         for (int level = 1; level <= 10; level++) {
             Field field = Core.class.getDeclaredField("SETTINGS_LEVEL_" + level);
             field.setAccessible(true);
@@ -126,6 +128,9 @@ public final class TwoHitEnemyTest {
         GameScreen screen = new GameScreen(new GameState(1, 0, 3, 0, 0, 0),
             new GameSettings(5, 2, 60, 2000), false, 448, 520, 60);
         screen.initialize();
+        Field delay = Screen.class.getDeclaredField("inputDelay");
+        delay.setAccessible(true);
+        delay.set(screen, Core.getCooldown(0)); // Exercise collisions after the countdown.
         ((CoinDropManager) get(screen, "coinDropManager")).setDropChance(1);
 
         // A multi-hit enemy survives hits without rewards, then pays once.
@@ -162,18 +167,33 @@ public final class TwoHitEnemyTest {
         shoot(screen, ordinary);
         check(ordinary.isDestroyed(), "Ordinary enemy remains one-hit");
 
-        // A wide bullet damages every enemy it overlaps, once each.
+        // A piercing bullet (big-bullet ship) damages every enemy it overlaps, once each.
         manager = waveManager(screen, 12);
         List<Enemy> line = manager.spawn(
             SpawnRequest.of(EnemyType.NORMAL, MovePattern.STRAIGHT_DOWN), 224, 490);
         bringIn(manager, line.get(line.size() - 1));
-        bullets(screen).add(new Bullet((int) line.get(0).getCenterX() - 50, 40, -4, 100, 480));
+        Bullet piercing = new Bullet((int) line.get(0).getCenterX() - 50, 40, -4, 100, 480);
+        piercing.setPiercing(true);
+        bullets(screen).add(piercing);
         call(screen, "manageCollisions");
         int destroyed = 0;
         for (Enemy enemy : line) if (enemy.isDestroyed()) destroyed++;
         check(line.size() > 1 && destroyed == line.size(),
-            "Wide bullet damages each overlapping enemy");
-        check(bullets(screen).isEmpty(), "Wide bullet consumed");
+            "Piercing bullet damages each overlapping enemy");
+        check(bullets(screen).isEmpty(), "Piercing bullet consumed");
+
+        // Width alone does not pierce (Team CS ship stats): a wide bullet
+        // that is not piercing stops at the first enemy.
+        manager = waveManager(screen, 12);
+        List<Enemy> wideLine = manager.spawn(
+            SpawnRequest.of(EnemyType.NORMAL, MovePattern.STRAIGHT_DOWN), 224, 490);
+        bringIn(manager, wideLine.get(wideLine.size() - 1));
+        bullets(screen).add(new Bullet((int) wideLine.get(0).getCenterX() - 50, 40, -4, 100, 480));
+        call(screen, "manageCollisions");
+        int wideDowned = 0;
+        for (Enemy enemy : wideLine) if (enemy.isDestroyed()) wideDowned++;
+        check(wideLine.size() > 1 && wideDowned == 1, "Wide bullet without piercing hits one enemy");
+        bullets(screen).clear();
 
         // A normal bullet stops at the first enemy it hits.
         manager = waveManager(screen, 15);
