@@ -253,7 +253,10 @@ public final class ItemSystem {
         logger.info("Item system started level " + level + ".");
     }
 
-    /** Called every frame. Measures elapsed time itself. No pickup/use when shipAvailable=false. */
+    /** Exclude pauses/countdowns from effect and drop timers. */
+	public void pauseClock() { lastUpdateNanos = -1; }
+
+    /** Called only during active gameplay; pauseClock excludes suspended time. */
     public void update(Entity ship, boolean shipAvailable) {
         // Spread/pierce reach the ship here, so the shared GameScreen needs no extra call.
         if (ship instanceof Ship) ((Ship) ship).setWeaponMods(spreadCount(), pierceCount());

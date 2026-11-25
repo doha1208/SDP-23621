@@ -117,8 +117,7 @@ public class AchievementManager {
 	 */
 	private void addInfinityVoidAchievement() {
 		addNormalAchievement(new Achievement(INFINITY_VOID_ID,
-				"Infinity Void", "Clear level " + ENDLESS_UNLOCK_LEVEL
-						+ " to unlock Endless Mode.", 0,
+				"Infinity Void", "Beat the game to unlock Endless Mode.", 0,
 				SpriteType.InfinityVoid, this.playerProfile
 						.isAchievementUnlocked(INFINITY_VOID_ID),
 				new Color(160, 32, 240)));

@@ -19,6 +19,7 @@ import entity.enemy.EnemyType;
 import entity.enemy.MovePattern;
 import entity.enemy.SpawnRequest;
 import screen.GameScreen;
+import screen.Screen;
 
 /** Standalone regression checks; run with isolated build/profile files. */
 public final class TwoHitEnemyTest {
@@ -53,6 +54,7 @@ public final class TwoHitEnemyTest {
 
     public static void main(String[] args) throws Exception {
         Core.getLogger().setUseParentHandlers(false);
+        engine.soundEngine.SoundManager.getInstance().setMuted(true);
         for (int level = 1; level <= 10; level++) {
             Field field = Core.class.getDeclaredField("SETTINGS_LEVEL_" + level);
             field.setAccessible(true);
@@ -126,6 +128,9 @@ public final class TwoHitEnemyTest {
         GameScreen screen = new GameScreen(new GameState(1, 0, 3, 0, 0, 0),
             new GameSettings(5, 2, 60, 2000), false, 448, 520, 60);
         screen.initialize();
+        Field delay = Screen.class.getDeclaredField("inputDelay");
+        delay.setAccessible(true);
+        delay.set(screen, Core.getCooldown(0)); // Exercise collisions after the countdown.
         ((CoinDropManager) get(screen, "coinDropManager")).setDropChance(1);
 
         // A multi-hit enemy survives hits without rewards, then pays once.
