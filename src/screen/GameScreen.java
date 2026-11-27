@@ -106,6 +106,11 @@ public class GameScreen extends Screen {
 	private static final int SEPARATION_LINE_HEIGHT = 40;
 	/** Height of the solid band behind the score bar; the item bar starts below it. */
 	private static final int HUD_BAND_HEIGHT = 42;
+	/**
+	 * Screen shake for an enemy kill, as a share of the full shake (5 px).
+	 * Rams, boss parts and the warp-in still shake at full power.
+	 */
+	private static final float KILL_SHAKE_SHARE = 0.4f;
 	/** Gap between the ship's starting row and the bottom of the screen. */
 	private static final int SHIP_BOTTOM_GAP = 30;
 	/** Lives at or below this value start the glitch. */
@@ -1197,7 +1202,8 @@ public class GameScreen extends Screen {
 										enemy.getPositionX() + enemy.getWidth() / 2,
 										enemy.getPositionY() + enemy.getHeight() / 2,
 										aliveEnemyCenters());
-							this.screenShake.trigger();
+							// Light shake: kills come often now (Team Entities).
+							this.screenShake.trigger(KILL_SHAKE_SHARE);
 							this.pointsEffect.spawn(
 									enemy.getPositionX() + enemy.getWidth() / 2,
 									enemy.getPositionY() + enemy.getHeight() / 2,

@@ -32,6 +32,8 @@ public class ScreenShake {
     private int offsetX;
     /** Current Y offset. */
     private int offsetY;
+    /** Share of the full power for the current shake (Team Entities). */
+    private float scale = 1f;
 
     /** Creates the shake with default values (5 px, 200 ms). */
     public ScreenShake() {
@@ -55,6 +57,21 @@ public class ScreenShake {
 
     /** Starts (or restarts) the shake at full power. */
     public void trigger() {
+        trigger(1f);
+    }
+
+    /**
+     * Starts (or restarts) the shake at a share of the full power (Team
+     * Entities), e.g. 0.4 for a light shake. A light shake never weakens a
+     * stronger one that is still running.
+     *
+     * @param share Share of the full power, 0 to 1.
+     */
+    public void trigger(final float share) {
+        float wanted = Math.max(0f, Math.min(1f, share));
+        boolean running = this.active
+                && System.currentTimeMillis() - this.startTime < this.duration;
+        this.scale = running ? Math.max(this.scale, wanted) : wanted;
         this.startTime = System.currentTimeMillis();
         this.active = true;
     }
@@ -72,7 +89,7 @@ public class ScreenShake {
             return;
         }
 
-        float strength = 1f - (float) elapsed / this.duration;
+        float strength = (1f - (float) elapsed / this.duration) * this.scale;
         this.offsetX = Math.round((this.random.nextFloat() * 2f - 1f)
                 * this.power * strength);
         this.offsetY = Math.round((this.random.nextFloat() * 2f - 1f)
