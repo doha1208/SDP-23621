@@ -545,7 +545,7 @@ public final class DrawManager {
 	 * Draws the item panel right below the HUD line (Team CS - Item System):
 	 * inventory slots on the left, each with the key that uses it (Z, X, C),
 	 * and running effects on the right with stacks or seconds left. The
-	 * latest item notice is shown above the player ship.
+	 * item notice panel is no longer drawn (Team Entities).
 	 *
 	 * @param screen
 	 *            Screen to draw on.
@@ -554,8 +554,6 @@ public final class DrawManager {
 	 */
 	public void drawItemHud(final Screen screen, final ItemSystem items) {
 		ItemArtwork.drawHud(backBufferGraphics, items.api().getView(), screen.getWidth(), fontRegular);
-		items.drawNotice(backBufferGraphics, screen.getWidth(), screen.getHeight(),
-				fontRegular.deriveFont(10f));
 	}
 
 	/**
