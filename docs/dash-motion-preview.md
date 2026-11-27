@@ -47,14 +47,14 @@ The dash replaces the earlier idea of a spin in place as the ship's dodge.
 
 | What | Value |
 | --- | --- |
-| Key | Shift, one dash per press |
+| Key | Ctrl, one dash per press |
 | Direction | The way the ship last moved (right at the start of a level) |
 | Length | 11 frames, about 180 ms at 60 fps, easing out |
 | Distance | 110 px, stopping at the screen sides |
 | Dodge | Enemy bullets, boss attacks and ramming enemies pass through while dashing |
 | Recharge | 1.5 s after the dash ends |
 
-- The level countdown shows `P to pause, Shift to dash`.
+- The level countdown shows `P to pause, Ctrl to dash`.
 - Arrow keys do nothing while the dash moves the ship; shooting still works.
 - A thin bar under the ship fills while the dash recharges and disappears once
   the next dash is ready.
@@ -63,12 +63,11 @@ The dash replaces the earlier idea of a spin in place as the ship's dodge.
 - If the level ends mid-dash, the trail and the recharge bar are no longer drawn.
 - To tune it, change `DURATION_FRAMES`, `DISTANCE` and `COOLDOWN_FRAMES` in
   `entity.ShipDash`.
-- On Windows, pressing Shift five times with no other key in between can open
-  the Sticky Keys prompt. Turn its shortcut off in Windows settings if it gets
-  in the way while testing.
+- The dash key is set in `engine.ControlKeys`. It used to be Shift, which on
+  Windows opens the Sticky Keys prompt when pressed five times in a row.
 
 Checks: `entity.ShipDashTest` (dash timing, easing, direction, recharge) and
-`DashDodgeTest` (Shift input, screen sides, dodging inside a real GameScreen,
+`DashDodgeTest` (Ctrl input, screen sides, dodging inside a real GameScreen,
 afterimages and the recharge bar). Run both headless from the repo root.
 
 ![Dash dodge in game](screenshots/dash-dodge.png)

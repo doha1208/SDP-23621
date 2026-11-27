@@ -92,7 +92,7 @@ public final class ItemVisualGameTest {
             feedback.clear();
             grant(items, "shield");
             call(game, "draw"); snapshot(output, "game-item-received");
-            check(items.getNotice().contains("Press 1"), "Pickup explains the real key");
+            check(items.getNotice().contains("Press Z"), "Pickup explains the real key");
             check(items.useSlot(0) == UseResult.USED, "Shield activates");
             call(game, "draw"); snapshot(output, "game-shield-active");
             check(items.getNotice().startsWith("Shield active"), "Using replaces the pickup instruction");

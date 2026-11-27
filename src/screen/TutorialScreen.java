@@ -11,6 +11,7 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
 
+import engine.ControlKeys;
 import engine.DrawManager.SpriteType;
 import entity.Bullet;
 import entity.BulletPool;
@@ -73,7 +74,7 @@ public final class TutorialScreen extends Screen {
                 });
         enterWasDown = inputManager.isKeyDown(KeyEvent.VK_ENTER);
         skipWasDown = inputManager.isKeyDown(KeyEvent.VK_S);
-        itemKeyWasDown = inputManager.isKeyDown(KeyEvent.VK_1);
+        itemKeyWasDown = inputManager.isKeyDown(ControlKeys.itemSlotKey(0));
         lastTickNanos = System.nanoTime();
         notice = null;
         noticeFrames = hitGrace = 0;
@@ -105,7 +106,7 @@ public final class TutorialScreen extends Screen {
     protected void update() {
         boolean enter = inputManager.isKeyDown(KeyEvent.VK_ENTER);
         boolean skip = inputManager.isKeyDown(KeyEvent.VK_S);
-        boolean use = inputManager.isKeyDown(KeyEvent.VK_1);
+        boolean use = inputManager.isKeyDown(ControlKeys.itemSlotKey(0));
         if (inputManager.isKeyDown(KeyEvent.VK_ESCAPE) || (skip && !skipWasDown)) {
             returnCode = inputManager.isKeyDown(KeyEvent.VK_ESCAPE) ? 1 : 2;
             isRunning = false;
@@ -254,7 +255,7 @@ public final class TutorialScreen extends Screen {
         case SHOOT: instruction = "2/6  Hold SPACE to fire"; detail = "Holding SPACE fires repeatedly."; break;
         case DEFEAT: instruction = "3/6  Defeat the practice enemy"; detail = "Move below the target and fire."; break;
         case PICKUP: instruction = "4/6  Collect the Shield"; detail = "Touch the falling shield icon."; break;
-        case USE_ITEM: instruction = "5/6  Press 1 to use Shield"; detail = "Some other items work on pickup."; break;
+        case USE_ITEM: instruction = "5/6  Press " + ControlKeys.itemSlotLabel(0) + " to use Shield"; detail = "Some other items work on pickup."; break;
         case BOSS: instruction = "6/6  Defeat the practice boss"; detail = "Dodge and fire. You cannot die."; break;
         default: instruction = "Tutorial complete!"; detail = "Press ENTER to start Stage 1"; break;
         }

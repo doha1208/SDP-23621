@@ -23,6 +23,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.logging.Logger;
 
+import engine.ControlKeys;
 import engine.Core;
 import entity.Entity;
 import entity.Ship;
@@ -296,7 +297,7 @@ public final class ItemSystem {
         if (result != UseResult.USED) {
             String reason;
             switch (result) {
-                case EMPTY_SLOT: reason = "Slot " + (slot + 1) + " is empty"; break;
+                case EMPTY_SLOT: reason = "Slot " + ControlKeys.itemSlotLabel(slot) + " is empty"; break;
                 case EFFECT_ALREADY_ACTIVE: reason = "This effect is already active"; break;
                 case INVALID_SLOT: reason = "Choose an existing item slot"; break;
                 case PLAYER_UNAVAILABLE: reason = "Wait until your ship is ready"; break;
@@ -436,7 +437,7 @@ public final class ItemSystem {
                     int key = event.slotIndex + 1;
                     logger.info("Item collected: " + name + " stored in slot " + key + ".");
                     feedback.show(item.effectKind, name + " collected",
-                        "Press " + key + " / " + ItemArtwork.describe(item, null), false);
+                        "Press " + ControlKeys.itemSlotLabel(event.slotIndex) + " / " + ItemArtwork.describe(item, null), false);
                 } else {
                     logger.info("Item collected: " + name + ".");
                 }
@@ -482,7 +483,7 @@ public final class ItemSystem {
             case ITEM_GRANTED:
                 if (event.slotIndex != null)
                     feedback.show(item.effectKind, name + " received",
-                        "Press " + (event.slotIndex + 1) + " / " + ItemArtwork.describe(item, null), false);
+                        "Press " + ControlKeys.itemSlotLabel(event.slotIndex) + " / " + ItemArtwork.describe(item, null), false);
                 break;
             default:
                 logger.info("Item event " + event.type + ": " + name + ".");

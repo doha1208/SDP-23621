@@ -71,7 +71,7 @@ public final class ItemArtwork {
             int x = 5;
             for (int i = 0; i < view.slots.size(); i++) {
                 g.setColor(new Color(167, 185, 204));
-                g.drawString(Integer.toString(i + 1), x, 55);
+                g.drawString(engine.ControlKeys.itemSlotLabel(i), x, 55);
                 if (view.slots.get(i) == null) {
                     g.setColor(new Color(54, 68, 86));
                     g.drawRect(x + 9, 44, 14, 14);

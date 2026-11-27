@@ -21,7 +21,7 @@ import screen.GameScreen;
 import screen.Screen;
 
 /**
- * Dash dodge inside a real GameScreen (Team CS): Shift dashes the way the
+ * Dash dodge inside a real GameScreen (Team CS): Ctrl dashes the way the
  * ship last moved, once per press, and stops at the screen sides; while
  * it dashes, bullets do not hit the ship. Run from the project root,
  * headless.
@@ -52,7 +52,7 @@ public final class DashDodgeTest {
 
     private static void shift(boolean down) {
         KeyEvent key = new KeyEvent(SOURCE, down ? KeyEvent.KEY_PRESSED : KeyEvent.KEY_RELEASED,
-                0, 0, KeyEvent.VK_SHIFT, KeyEvent.CHAR_UNDEFINED);
+                0, 0, KeyEvent.VK_CONTROL, KeyEvent.CHAR_UNDEFINED);
         if (down) Core.getInputManager().keyPressed(key);
         else Core.getInputManager().keyReleased(key);
     }
@@ -101,18 +101,18 @@ public final class DashDodgeTest {
         game.initialize();
         Ship ship = (Ship) field(GameScreen.class, "ship").get(game);
 
-        // Shift with no arrow key: the ship dashes right (its default direction).
+        // Ctrl with no arrow key: the ship dashes right (its default direction).
         int start = ship.getPositionX();
-        check(!frame(game, false, false), "No dash before Shift");
+        check(!frame(game, false, false), "No dash before Ctrl");
         shift(true);
         int dashFrames = 0;
         while (frame(game, false, false)) dashFrames++;
         check(dashFrames == DASH_FRAMES, "Dash lasts " + DASH_FRAMES + " frames, got " + dashFrames);
         check(ship.getPositionX() == start + DASH_DISTANCE, "Dash moves 110 px right");
 
-        // Holding Shift does not dash again.
+        // Holding Ctrl does not dash again.
         recharge(game);
-        check(ship.getPositionX() == start + DASH_DISTANCE, "Holding Shift dashes once");
+        check(ship.getPositionX() == start + DASH_DISTANCE, "Holding Ctrl dashes once");
 
         // After moving left, a new press dashes left, even with the key let go.
         shift(false);

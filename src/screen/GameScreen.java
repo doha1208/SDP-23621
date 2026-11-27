@@ -16,6 +16,7 @@ import java.util.Set;
 import engine.soundEngine.Sound;
 import engine.soundEngine.SoundManager;
 import engine.CoinDropManager;
+import engine.ControlKeys;
 import engine.Cooldown;
 import engine.Core;
 import engine.DrawManager;
@@ -276,7 +277,7 @@ public class GameScreen extends Screen {
 	private List<long[]> scoreBoostPopups;
 	/** Item system of this run (Team CS). Kept across levels by ItemSystem. */
 	private ItemSystem items;
-	/** Item slot keys (1-9) held last frame, so holding a key uses it once. */
+	/** Item slot keys (Z, X, C, ...) held last frame, so holding a key uses it once. */
 	private boolean[] itemSlotKeysHeld = new boolean[9];
 	/** Dash dodge of the ship (Team CS). */
 	private ShipDash dash;
@@ -1070,7 +1071,8 @@ public class GameScreen extends Screen {
 			drawManager.drawHorizontalLine(this, this.height / 2 + this.height
 					/ 12);
 			drawManager.drawItemHint(this, this.items); // Item System (Team CS)
-			drawManager.drawKeyHints(this, "P to pause, Shift to dash");
+			drawManager.drawKeyHints(this, "P to pause, "
+					+ ControlKeys.DASH_LABEL + " to dash");
 		}
 
 
@@ -1416,7 +1418,7 @@ public class GameScreen extends Screen {
 	}
 
 	/**
-	 * Dash dodge (Team CS): Shift dashes the way the ship last moved. While
+	 * Dash dodge (Team CS): Ctrl dashes the way the ship last moved. While
 	 * the dash lasts it moves the ship instead of the arrow keys, and stops
 	 * at the screen sides.
 	 *
@@ -1429,7 +1431,7 @@ public class GameScreen extends Screen {
 	private boolean updateDash(final boolean moveLeft,
 			final boolean moveRight) {
 		this.dash.face((moveRight ? 1 : 0) - (moveLeft ? 1 : 0));
-		boolean dashKey = inputManager.isKeyDown(KeyEvent.VK_SHIFT);
+		boolean dashKey = inputManager.isKeyDown(ControlKeys.DASH);
 		if (dashKey && !this.dashKeyHeld)
 			this.dash.start();
 		this.dashKeyHeld = dashKey;
@@ -1488,14 +1490,16 @@ public class GameScreen extends Screen {
 	}
 
 	/**
-	 * Uses an item slot when its number key is pressed (Team CS). Key 1 is
-	 * the first slot; holding a key uses the slot only once.
+	 * Uses an item slot when its key is pressed (Team CS). Z is the first
+	 * slot, then X and C (see engine.ControlKeys); holding a key uses the
+	 * slot only once.
 	 */
 	private void useItemSlots() {
-		int slots = Math.min(this.itemSlotKeysHeld.length,
+		int slots = Math.min(Math.min(this.itemSlotKeysHeld.length,
+				ControlKeys.itemSlotCount()),
 				this.items.api().getView().slots.size());
 		for (int slot = 0; slot < slots; slot++) {
-			boolean down = inputManager.isKeyDown(KeyEvent.VK_1 + slot);
+			boolean down = inputManager.isKeyDown(ControlKeys.itemSlotKey(slot));
 			if (down && !this.itemSlotKeysHeld[slot])
 				this.items.useSlot(slot);
 			this.itemSlotKeysHeld[slot] = down;

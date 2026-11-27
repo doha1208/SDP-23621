@@ -543,7 +543,7 @@ public final class DrawManager {
 
 	/**
 	 * Draws the item panel right below the HUD line (Team CS - Item System):
-	 * inventory slots on the left, each with the number key that uses it,
+	 * inventory slots on the left, each with the key that uses it (Z, X, C),
 	 * and running effects on the right with stacks or seconds left. The
 	 * latest item notice is shown above the player ship.
 	 *
