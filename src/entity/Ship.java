@@ -26,22 +26,22 @@ public class Ship extends Entity {
 	 */
 	public enum ShipType {
 		/** Standard ship. */
-		STANDARD(2, 750, 6, 1, Bullet.DEFAULT_WIDTH, Bullet.DEFAULT_HEIGHT,
+		STANDARD(2, 250, 6, 1, Bullet.DEFAULT_WIDTH, Bullet.DEFAULT_HEIGHT,
 				false, SpriteType.Ship),
 		/** Ship with a high movement speed. */
-		FAST_MOVE(4, 750, 6, 1, Bullet.DEFAULT_WIDTH, Bullet.DEFAULT_HEIGHT,
+		FAST_MOVE(4, 250, 6, 1, Bullet.DEFAULT_WIDTH, Bullet.DEFAULT_HEIGHT,
 				false, SpriteType.ShipFastMove),
 		/** Ship that shoots a bullet from each of its two barrels. */
-		TWO_WAY(1, 1000, 6, 2, Bullet.DEFAULT_WIDTH, Bullet.DEFAULT_HEIGHT,
+		TWO_WAY(1, 333, 6, 2, Bullet.DEFAULT_WIDTH, Bullet.DEFAULT_HEIGHT,
 				false, SpriteType.ShipTwoWay),
 		/** Ship with a high rate of fire. */
-		FAST_ATTACK(2, 375, 6, 1, Bullet.DEFAULT_WIDTH, Bullet.DEFAULT_HEIGHT,
+		FAST_ATTACK(2, 125, 6, 1, Bullet.DEFAULT_WIDTH, Bullet.DEFAULT_HEIGHT,
 				false, SpriteType.ShipFastAttack),
 		/**
 		 * Ship with a large projectile (9x15 sprite pixels, scaled by 2) that
 		 * goes on through every enemy it overlaps.
 		 */
-		BIG_BULLET(2, 1000, 6, 1, 9 * 2, 15 * 2, true,
+		BIG_BULLET(2, 333, 6, 1, 9 * 2, 15 * 2, true,
 				SpriteType.ShipBigBullet);
 
 		/** Movement of the ship for each unit of time. */

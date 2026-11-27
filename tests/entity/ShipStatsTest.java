@@ -54,12 +54,13 @@ public final class ShipStatsTest {
     public static void main(String[] args) {
         Core.getLogger().setUseParentHandlers(false);
 
-        // The shipped file keeps every ship exactly as it played before.
-        expectStats(ShipType.STANDARD, 2, 750, 6, 1, 6, 10);
-        expectStats(ShipType.FAST_MOVE, 4, 750, 6, 1, 6, 10);
-        expectStats(ShipType.TWO_WAY, 1, 1000, 6, 2, 6, 10);
-        expectStats(ShipType.FAST_ATTACK, 2, 375, 6, 1, 6, 10);
-        expectStats(ShipType.BIG_BULLET, 2, 1000, 6, 1, 18, 30);
+        // The shipped file matches the built-in stats (fire intervals 3x shorter
+        // than the original game, so holding Space feels like auto fire).
+        expectStats(ShipType.STANDARD, 2, 250, 6, 1, 6, 10);
+        expectStats(ShipType.FAST_MOVE, 4, 250, 6, 1, 6, 10);
+        expectStats(ShipType.TWO_WAY, 1, 333, 6, 2, 6, 10);
+        expectStats(ShipType.FAST_ATTACK, 2, 125, 6, 1, 6, 10);
+        expectStats(ShipType.BIG_BULLET, 2, 333, 6, 1, 18, 30);
 
         // The file is really read: a value that differs from the default
         // reaches the ship type key, and every shipped key matches a getter.
