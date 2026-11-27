@@ -253,7 +253,7 @@ public final class TutorialScreen extends Screen {
         case MOVE: instruction = "1/6  Move: A/D or LEFT/RIGHT"; detail = "Move sideways to begin."; break;
         case SHOOT: instruction = "2/6  Hold SPACE to fire"; detail = "Holding SPACE fires repeatedly."; break;
         case DEFEAT: instruction = "3/6  Defeat the practice enemy"; detail = "Move below the target and fire."; break;
-        case PICKUP: instruction = "4/6  Collect the Shield"; detail = "Touch the falling S item."; break;
+        case PICKUP: instruction = "4/6  Collect the Shield"; detail = "Touch the falling shield icon."; break;
         case USE_ITEM: instruction = "5/6  Press 1 to use Shield"; detail = "Some other items work on pickup."; break;
         case BOSS: instruction = "6/6  Defeat the practice boss"; detail = "Dodge and fire. You cannot die."; break;
         default: instruction = "Tutorial complete!"; detail = "Press ENTER to start Stage 1"; break;
@@ -289,8 +289,8 @@ public final class TutorialScreen extends Screen {
         }
         for (DropView drop : view.drops) {
             int x = (int) drop.bounds.x, y = (int) drop.bounds.y;
-            drawManager.fillBox(x, y, (int) drop.bounds.width, (int) drop.bounds.height, Color.CYAN);
-            drawManager.drawRegularString("S", x + 2, y + 15, Color.BLACK);
+            drawManager.drawItemIcon(drop.item.effectKind, x, y,
+                    (int) Math.min(drop.bounds.width, drop.bounds.height));
         }
         for (EffectView effect : view.effects) {
             if (effect.item.effectKind != EffectKind.SHIELD) continue;

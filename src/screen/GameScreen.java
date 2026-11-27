@@ -996,6 +996,7 @@ public class GameScreen extends Screen {
 					SEPARATION_LINE_HEIGHT);
 			drawManager.drawLightningChain(this.lightningChain);
 
+			drawManager.drawItemDrops(this.items); // Item System (Team CS)
 			for (Bullet bullet : this.bullets) {
 				// Comet trail, player bullets only. AUTHORED BY: VFX TEAM (Effection)
 				if (this.cometTrailOn && bullet.getSpeed() < 0)
@@ -1015,7 +1016,6 @@ public class GameScreen extends Screen {
 				drawManager.drawCoin(coin, coin.getPositionX(),
 						coin.getPositionY());
 			this.meteors.draw(drawManager); // VFX TEAM (Effection): draws the meteor and its diamonds
-			drawManager.drawItemDrops(this.items); // Item System (Team CS)
 			// HUD must stay still: remove shake offset.
 			drawManager.setWorldOffset(0, 0);
 		}
