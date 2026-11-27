@@ -71,6 +71,8 @@ public class GameScreen extends Screen {
 	private static final int LIFE_SCORE = 100;
 	/** Time from finishing the level to screen change. */
 	private static final int SCREEN_CHANGE_INTERVAL = 1500;
+	/** Longest wait for leftover item drops to reach the ship after a clear (Team Entities). */
+	private static final int MAX_GATHER_MILLIS = 4000;
 	// Game over animation timings. AUTHORED BY: VFX TEAM (Effection)
 	/** Pause after the player ship explodes, before enemies disappear. */
 	private static final int GAME_OVER_PAUSE = 500;
@@ -241,6 +243,8 @@ public class GameScreen extends Screen {
 	private long gameStartTime;
 	/** Checks if the level is finished. */
 	private boolean levelFinished;
+	/** When the level finished, to cap the wait for gathered drops (Team Entities). */
+	private long levelFinishedAt;
 	/** Sparkles from destroyed ships. AUTHORED BY: VFX TEAM (Effection) */
 	private List<Particle> particles = new ArrayList<Particle>();
 	/** Colors the sparkles can have. AUTHORED BY: VFX TEAM (Effection) */
@@ -619,6 +623,8 @@ public class GameScreen extends Screen {
 		// Item System (Team CS): drops fall/expire, pickups, effect timers.
 		if (this.inputDelay.checkFinished() && !this.levelFinished && this.lives > 0)
 			this.items.update(this.ship, !this.ship.isDestroyed());
+		else if (this.levelFinished && this.lives > 0 && !this.gameOverActive && !didQuit())
+			this.items.gatherDrops(this.ship); // Team Entities: leftover drops fly to the ship on a clear.
 		else
 			this.items.pauseClock();
 		manageCollisions();
@@ -650,6 +656,7 @@ public class GameScreen extends Screen {
 		if ((isCleared || this.lives == 0)
 				&& !this.levelFinished) {
 			this.levelFinished = true;
+			this.levelFinishedAt = System.currentTimeMillis();
 			this.screenFinishedCooldown.reset();
 			this.enemyManager.clearBullets();
 			BulletPool.recycle(this.bullets);
@@ -686,6 +693,8 @@ public class GameScreen extends Screen {
 		}
 
 		if (this.levelFinished && this.screenFinishedCooldown.checkFinished()
+				&& (!this.items.hasDrops()
+						|| System.currentTimeMillis() - this.levelFinishedAt > MAX_GATHER_MILLIS)
 				&& this.unlockedAchievement == null
 				&& this.achievementPopupQueue.isEmpty())
 			this.isRunning = false;

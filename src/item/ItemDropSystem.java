@@ -127,6 +127,14 @@ class ItemDropSystem {
     Frame advance(long delta, PlayerSnapshot player) { return advance(delta, player, false); }
 
     Frame advance(long delta, PlayerSnapshot player, boolean magnetEquipped) {
+        return advance(delta, player, magnetEquipped, false);
+    }
+
+    /**
+     * gather: the level is over, so every drop flies straight to the player at drop.gatherSpeed,
+     * whatever its distance (Team Entities).
+     */
+    Frame advance(long delta, PlayerSnapshot player, boolean magnetEquipped, boolean gather) {
         requireActive();
         if (delta < 0) throw new IllegalArgumentException("negative delta");
         ItemAPI.required(player, "player");
@@ -135,7 +143,7 @@ class ItemDropSystem {
         Iterator<DroppedItem> iterator = items.values().iterator();
         while (iterator.hasNext()) {
             DroppedItem item = iterator.next();
-            DropView contact = outside(item) ? null : move(item, delta, player, magnetEquipped);
+            DropView contact = outside(item) ? null : move(item, delta, player, magnetEquipped, gather);
             if (contact != null) {
                 contacts.add(contact);
             } else if (outside(item)) {
@@ -174,8 +182,11 @@ class ItemDropSystem {
         return Math.max(0, (wall - position) / velocity * 1000);
     }
 
-    private DropView move(DroppedItem item, long delta, PlayerSnapshot player, boolean magnetEquipped) {
-        boolean attract = magnetEquipped && player.canPickup;
+    private DropView move(DroppedItem item, long delta, PlayerSnapshot player,
+                          boolean magnetEquipped, boolean gather) {
+        boolean attract = (magnetEquipped || gather) && player.canPickup;
+        double pullSpeed = gather ? Math.max(balance.gatherSpeed, balance.magnetSpeed) : balance.magnetSpeed;
+        if (attract && gather) item.magnetized = true;
         double targetX = player.bounds.x + player.bounds.width / 2 - rules.pickupWidth / 2;
         double targetY = player.bounds.y + player.bounds.height / 2 - rules.pickupHeight / 2;
         if (attract && Math.hypot(item.x - targetX, item.y - targetY) <= balance.magnetRange)
@@ -189,7 +200,7 @@ class ItemDropSystem {
                 double distance = Math.hypot(dx, dy);
                 // Stop at the player rather than overshooting and oscillating on long frames.
                 double fraction = distance == 0 ? 0
-                    : Math.min(1, balance.magnetSpeed * (remaining / 1000.0) / distance);
+                    : Math.min(1, pullSpeed * (remaining / 1000.0) / distance);
                 dx *= fraction;
                 dy *= fraction;
                 if (contact == null) contact = contactAlong(item, dx, dy, player.bounds);

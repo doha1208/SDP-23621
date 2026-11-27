@@ -47,6 +47,8 @@ final class ItemBalance {
     /** Bouncing drops (Team Entities): speed in px/s and how long they bounce before flying off screen. */
     final double bounceSpeed;
     final long bounceMillis;
+    /** Speed (px/s) at which leftover drops fly to the ship when a level is cleared (Team Entities). */
+    final double gatherSpeed;
     /** Legacy LevelRules constructor value; drops no longer land or use a ground lifetime. */
     final long groundLifetimeMillis;
 
@@ -128,6 +130,7 @@ final class ItemBalance {
         directionChangeMillis = positiveLong(settings, "drop.directionChangeMillis", 700L);
         bounceSpeed = positiveDouble(settings, "drop.speed", 150);
         bounceMillis = positiveLong(settings, "drop.bounceMillis", 6_000L);
+        gatherSpeed = positiveDouble(settings, "drop.gatherSpeed", 700);
         dropWidth = positiveDouble(settings, "drop.width", 24);
         dropHeight = positiveDouble(settings, "drop.height", 24);
         groundLifetimeMillis = positiveLong(settings, "drop.groundLifetimeMillis", 8_000L);

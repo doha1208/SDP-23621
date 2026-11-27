@@ -255,7 +255,18 @@ public final class ItemSystem {
 	public void pauseClock() { lastUpdateNanos = -1; }
 
     /** Called only during active gameplay; pauseClock excludes suspended time. */
-    public void update(Entity ship, boolean shipAvailable) {
+    public void update(Entity ship, boolean shipAvailable) { update(ship, shipAvailable, false); }
+
+    /**
+     * After a level is cleared: every drop still on the field flies to the ship and is picked up,
+     * so the level ends tidy (Team Entities). Call every frame until hasDrops() is false.
+     */
+    public void gatherDrops(Entity ship) { update(ship, true, true); }
+
+    /** True while item drops are still on the field. */
+    public boolean hasDrops() { return isLevelActive() && manager.hasDrops(); }
+
+    private void update(Entity ship, boolean shipAvailable, boolean gather) {
         // Spread/pierce reach the ship here, so the shared GameScreen needs no extra call.
         if (ship instanceof Ship) ((Ship) ship).setWeaponMods(spreadCount(), pierceCount());
         if (!isLevelActive()) return;
@@ -268,7 +279,7 @@ public final class ItemSystem {
         Bounds bounds = new Bounds(ship.getPositionX(), ship.getPositionY(),
             Math.max(1, ship.getWidth()), Math.max(1, ship.getHeight()));
         feedback.advance(delta, bounds);
-        manager.update(delta, new PlayerSnapshot(bounds, shipAvailable, shipAvailable));
+        manager.update(delta, new PlayerSnapshot(bounds, shipAvailable, shipAvailable), gather);
         feedback.checkFullInventory(api.getView(), bounds, shipAvailable);
     }
 

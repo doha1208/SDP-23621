@@ -163,13 +163,19 @@ public final class ItemManager {
     }
 
     /** The game loop passes the elapsed game time (ms) and the current player state. */
-    public void update(long delta, PlayerSnapshot currentPlayer) {
+    public void update(long delta, PlayerSnapshot currentPlayer) { update(delta, currentPlayer, false); }
+
+    /**
+     * gather: the level is cleared, so every drop flies to the player and is picked up there.
+     * A gathered drop that cannot be kept is converted (magnet) or simply removed (Team Entities).
+     */
+    void update(long delta, PlayerSnapshot currentPlayer, boolean gather) {
         requireActive(); ItemAPI.required(currentPlayer, "player");
         if (delta < 0) throw new IllegalArgumentException("negative delta");
         // Handles expiry for the elapsed time first, then applies effects gained in this update.
         for (ItemEffectSystem.Ended ended : effects.advance(delta)) emitEnded(ended);
         player = currentPlayer;
-        ItemDropSystem.Frame frame = drops.advance(delta, currentPlayer, magnetEquipped);
+        ItemDropSystem.Frame frame = drops.advance(delta, currentPlayer, magnetEquipped, gather);
         for (DropView expired : frame.expired)
             emit(EventType.ITEM_EXPIRED, expired.item.itemId, expired.dropId,
                 null, null, null, null, null, null, expired.bounds);
@@ -183,6 +189,10 @@ public final class ItemManager {
                 if (magnetEquipped && contact.magnetized) {
                     drops.completePickup(contact.dropId);
                     emit(EventType.ITEM_CONVERTED, contact.item.itemId, contact.dropId,
+                        null, null, null, null, null, null, contact.bounds);
+                } else if (gather) {
+                    drops.completePickup(contact.dropId);
+                    emit(EventType.ITEM_EXPIRED, contact.item.itemId, contact.dropId,
                         null, null, null, null, null, null, contact.bounds);
                 }
                 continue;
@@ -283,6 +293,8 @@ public final class ItemManager {
             && (item.effectKind == EffectKind.RAPID_FIRE || item.effectKind == EffectKind.BULLET_SPEED
                 || item.effectKind == EffectKind.SPREAD || item.effectKind == EffectKind.PIERCE);
     }
+    /** Whether any drop is still on the field. */
+    boolean hasDrops() { return active && !drops.snapshot().isEmpty(); }
     /** Whether a level is active. Used by the game bridge (ItemSystem) to avoid double begin/end. */
     boolean isLevelActive() { return active; }
     private void requireActive() { if (!active) throw new IllegalStateException("level is inactive"); }

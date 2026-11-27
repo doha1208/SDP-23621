@@ -25,6 +25,7 @@ must be positive; invalid values fail at load time.
 | --- | ---: | --- |
 | `drop.speed` | 150 | Flying speed in pixels/second; each drop uses 0.85 to 1.15 times this value. |
 | `drop.bounceMillis` | 6000 | How long a drop bounces before it flies out past a wall. |
+| `drop.gatherSpeed` | 700 | On a level clear, leftover drops fly to the ship at this speed and are picked up. |
 | `equip.magnet.range` | 140 | Center-to-center attraction radius in pixels. |
 | `equip.magnet.speed` | 260 | Attraction speed in pixels/second. |
 | `equip.magnet.convertScore` | 50 | Score for an attracted drop that cannot be kept on contact. |
