@@ -572,7 +572,10 @@ public final class DrawManager {
 		backBufferGraphics.setColor(Color.GRAY);
 		drawCenteredRegularString(screen, "Catch item drops with your ship",
 				screen.getHeight() * 2 / 3);
-		drawCenteredRegularString(screen, "Keys 1-" + slots
+		// Team Entities: picked-up items start at once unless pickup.autoUse=false.
+		drawCenteredRegularString(screen, items.autoUse()
+				? "They work the moment you catch them"
+				: ControlKeys.itemSlotLabel(0) + "-" + ControlKeys.itemSlotLabel(slots - 1)
 				+ " use stored items", screen.getHeight() * 2 / 3
 				+ fontRegularMetrics.getHeight());
 		ItemAPI.ItemInfo equipped = items.equippedThisRun();

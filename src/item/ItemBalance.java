@@ -48,6 +48,8 @@ final class ItemBalance {
     final long groundLifetimeMillis;
 
     final int inventoryCapacity;
+    /** Picked-up slot items (shield, freeze, boost, score boost) start at once instead of going to a slot (Team Entities). */
+    final boolean autoUse;
 
     /** Equipped items: extra slots, and the magnet score for a drop it cannot keep, extra max lives, and extra active item time. */
     final int extraSlotsAmount, magnetConvertScore, maxLifeAmount;
@@ -126,6 +128,7 @@ final class ItemBalance {
         groundLifetimeMillis = positiveLong(settings, "drop.groundLifetimeMillis", 8_000L);
 
         inventoryCapacity = positiveInt(settings, "inventory.capacity", 3);
+        autoUse = flag(settings, "pickup.autoUse", true);
 
         extraSlotsAmount = positiveInt(settings, "equip.extraSlots.amount", 1);
         magnetConvertScore = positiveInt(settings, "equip.magnet.convertScore", 50);
@@ -160,6 +163,14 @@ final class ItemBalance {
         } catch (NumberFormatException error) {
             throw invalid(key, value, "an integer");
         }
+    }
+
+    private static boolean flag(Properties settings, String key, boolean fallback) {
+        String value = raw(settings, key);
+        if (value == null) return fallback;
+        if (value.equalsIgnoreCase("true")) return true;
+        if (value.equalsIgnoreCase("false")) return false;
+        throw invalid(key, value, "true or false");
     }
 
     private static double positiveDouble(Properties settings, String key, double fallback) {

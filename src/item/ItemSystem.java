@@ -393,6 +393,9 @@ public final class ItemSystem {
         logger.info("Item system ended level " + levelNumber + ".");
     }
 
+    /** True when picked-up items start at once instead of going to a slot (Team Entities). */
+    public boolean autoUse() { return balance.autoUse; }
+
     /** Message about the last item action for the screen, or null when there is nothing recent. */
     public String getNotice() {
         return feedback.notice();
@@ -440,6 +443,8 @@ public final class ItemSystem {
                         "Press " + ControlKeys.itemSlotLabel(event.slotIndex) + " / " + ItemArtwork.describe(item, null), false);
                 } else {
                     logger.info("Item collected: " + name + ".");
+                    // An auto-use pickup counts as using the item (Team Entities).
+                    if (item.activationMode == ActivationMode.MANUAL) Core.getAchievementManager().recordItemUsed();
                 }
                 break;
             case ITEM_USED:

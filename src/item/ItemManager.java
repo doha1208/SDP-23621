@@ -35,6 +35,8 @@ public final class ItemManager {
     private Consumer<ItemEvent> listener;
     /** Whether this run's equipped item is the magnet. Fixed by equip() before the first level. */
     private boolean magnetEquipped;
+    /** Picked-up slot items start at once instead of going to a slot (Team Entities). Direct grants still use slots. */
+    private final boolean autoUse;
 
     /** Sets the run's inventory capacity and drop random source. Does not start a stage yet. */
     public ItemManager(int capacity, Random random) {
@@ -48,6 +50,7 @@ public final class ItemManager {
         drops = new ItemDropSystem(definitions, balance, ItemAPI.required(random, "random"));
         inventory = new ItemInventory(capacity);
         effects = new ItemEffectSystem();
+        autoUse = balance.autoUse;
     }
 
     /** For in-package test assembly. Not an API for other teams. The four objects must belong to this manager only. */
@@ -57,6 +60,7 @@ public final class ItemManager {
         this.drops = ItemAPI.required(drops, "drops");
         this.inventory = ItemAPI.required(inventory, "inventory");
         this.effects = ItemAPI.required(effects, "effects");
+        this.autoUse = false;
     }
 
     ItemInfo getItemInfo(String id) { return definitions.find(ItemAPI.text(id, "itemId")); }
@@ -92,7 +96,7 @@ public final class ItemManager {
                 reservation.pendingGrantId, request, result.status, null, null);
             return result;
         }
-        Acquisition acquired = acquire(item);
+        Acquisition acquired = acquire(item, false);
         if (acquired.failure != null)
             return remember(GrantResult.rejected(request, acquired.failure, levelId()));
         GrantResult result = acquired.slot != null
@@ -171,7 +175,7 @@ public final class ItemManager {
                 null, null, null, null, null, null, expired.bounds);
         if (!currentPlayer.canPickup) return;
         for (DropView contact : frame.contacts) {
-            Acquisition acquired = acquire(contact.item);
+            Acquisition acquired = acquire(contact.item, autoUse);
             if (acquired.failure != null) {
                 // Only an attracted drop that physically touches the player is converted.
                 // The magnet takes a drop it cannot keep (full inventory, max stacks, ...)
@@ -244,9 +248,12 @@ public final class ItemManager {
         // Inventory, pending reservations, grant results, IDs and queued events are kept for the run.
     }
 
-    /** Shared by contact pickup and direct NOW grants. The caller handles drop removal, receipts and cause events. */
-    private Acquisition acquire(ItemInfo item) {
-        if (item.activationMode == ActivationMode.MANUAL) {
+    /**
+     * Shared by contact pickup and direct NOW grants. The caller handles drop removal, receipts and cause events.
+     * useNow starts a slot item at once instead of storing it (auto-use pickups, Team Entities).
+     */
+    private Acquisition acquire(ItemInfo item, boolean useNow) {
+        if (item.activationMode == ActivationMode.MANUAL && !useNow) {
             int slot = inventory.firstEmptySlot();
             if (slot < 0) return new Acquisition(GrantFailure.INVENTORY_FULL, null, null);
             inventory.store(slot, item);

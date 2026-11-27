@@ -1,14 +1,15 @@
 # Tutorial stage
 
 Every new game starts with a safe tutorial before Stage 1. It teaches the
-game's keys (set in `engine.ControlKeys`) in six steps:
+game's keys (set in `engine.ControlKeys`) in five steps:
 
 1. Move with WASD or the arrow keys (any direction).
 2. Press CTRL to dash.
 3. Hold SPACE to fire.
 4. Defeat the practice enemy.
-5. Collect the falling Shield.
-6. Press Z to use it (Z, X and C use item slots 1 to 3).
+5. Catch the Shield. Items work the moment they are caught, so the shield
+   turns on at once (no item key; see `pickup.autoUse` in
+   `res/item-balance.properties`).
 
 Then press ENTER to start Stage 1. ENTER also skips straight to Stage 1 at
 any step, including right after opening the tutorial. ESC returns to the main
@@ -31,8 +32,8 @@ priority. S moves the ship down; it no longer skips the tutorial.
    between the arena top and its starting row.
 4. Press CTRL: the ship dashes sideways, and the firing step and practice enemy appear.
 5. Shoot away from the enemy: the step must not advance until a shot hits it.
-6. Hit the enemy, collect the Shield, then press Z: the completion message
-   appears and the ship gets the shield. The old number key 1 does nothing.
+6. Hit the enemy and catch the Shield: the completion message appears and
+   the ship gets the shield at once, with no key press.
 7. Press ENTER: Stage 1 begins with a fresh score and three lives.
 8. Start a new game and press ESC during the tutorial: return to the menu without
    entering Stage 1 or the score screen. Starting again resets the tutorial.
@@ -48,7 +49,7 @@ when reporting a manual test; the checklist below is not a claim that it was run
 | Initial skip | Press ENTER immediately on entering the tutorial, before moving. | Stage 1 begins; no need to wait for the input delay. |
 | Firing step | Move and dash, then press ENTER before firing. | Stage 1 begins. |
 | Active bullets | Fire away from the enemy, then press ENTER while a bullet is visible. | Stage 1 begins without leftover tutorial bullets or enemies. |
-| Completion | Finish all six steps, then press ENTER. | Stage 1 begins. |
+| Completion | Finish all five steps, then press ENTER. | Stage 1 begins. |
 | Held menu key | Hold ENTER while selecting Play. | Tutorial stays visible until ENTER is released and pressed again. |
 | Moving down | Press S at any step. | The ship moves down; the tutorial does not end. |
 | Return to menu | Press ESC at each step, including completion. | Main menu appears, with no score screen or new game started. |

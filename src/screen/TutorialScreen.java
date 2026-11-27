@@ -25,10 +25,10 @@ import item.ItemManager;
 /**
  * Self-contained practice; never awards scores, currency or achievements.
  * Teaches the game's keys (see engine.ControlKeys): move, dash, fire,
- * defeat an enemy, pick up and use an item.
+ * defeat an enemy, and catch an item (it works at once).
  */
 public final class TutorialScreen extends Screen {
-    private enum Step { MOVE, DASH, SHOOT, DEFEAT, PICKUP, USE_ITEM, COMPLETE }
+    private enum Step { MOVE, DASH, SHOOT, DEFEAT, PICKUP, COMPLETE }
     private static final int ARENA_TOP = 220;
     /** Remember completion/skip only until this Java process exits. */
     private static boolean tutorialPassed;
@@ -41,7 +41,7 @@ public final class TutorialScreen extends Screen {
     private final Set<Bullet> bullets = new HashSet<Bullet>();
     private ItemManager itemManager;
     private ItemAPI items;
-    private boolean enterWasDown, itemKeyWasDown, dashKeyWasDown;
+    private boolean enterWasDown, dashKeyWasDown;
     private long lastTickNanos;
     private String notice;
     private int noticeFrames;
@@ -72,7 +72,6 @@ public final class TutorialScreen extends Screen {
         // Keys held while entering (e.g. ENTER from the menu) must be
         // released and pressed again.
         enterWasDown = inputManager.isKeyDown(KeyEvent.VK_ENTER);
-        itemKeyWasDown = inputManager.isKeyDown(ControlKeys.itemSlotKey(0));
         dashKeyWasDown = inputManager.isKeyDown(ControlKeys.DASH);
         lastTickNanos = System.nanoTime();
         notice = null;
@@ -102,7 +101,6 @@ public final class TutorialScreen extends Screen {
     @Override
     protected void update() {
         boolean enter = inputManager.isKeyDown(KeyEvent.VK_ENTER);
-        boolean use = inputManager.isKeyDown(ControlKeys.itemSlotKey(0));
         // ESC: back to the menu. ENTER: start Stage 1, at any step.
         if (inputManager.isKeyDown(KeyEvent.VK_ESCAPE) || (enter && !enterWasDown)) {
             returnCode = inputManager.isKeyDown(KeyEvent.VK_ESCAPE) ? 1 : 2;
@@ -115,13 +113,12 @@ public final class TutorialScreen extends Screen {
         // Practice keeps running after completion, so the player can keep
         // moving and dashing until ENTER.
         if (inputDelay.checkFinished())
-            updatePractice(delta, use && !itemKeyWasDown);
+            updatePractice(delta);
         enterWasDown = enter;
-        itemKeyWasDown = use;
         draw();
     }
 
-    private void updatePractice(final long delta, final boolean usePressed) {
+    private void updatePractice(final long delta) {
         if (noticeFrames > 0) noticeFrames--;
         int oldX = ship.getPositionX();
         int oldY = ship.getPositionY();
@@ -162,13 +159,21 @@ public final class TutorialScreen extends Screen {
                 ship.getPositionY(), ship.getWidth(), ship.getHeight()), true, true));
         updateBullets();
         if (step == Step.PICKUP) {
-            if (items.getView().slots.get(0) != null) step = Step.USE_ITEM;
-            else if (items.getView().drops.isEmpty()) spawnShield(width / 2.0, height / 2.0);
-        } else if (step == Step.USE_ITEM && usePressed && items.useSlot(0) == UseResult.USED) {
-            step = Step.COMPLETE;
-            showNotice("Shield on! It blocks one hit.");
+            // Items work as soon as they are caught. If pickup.autoUse is off the
+            // shield lands in a slot instead, so the tutorial uses it right away.
+            if (items.getView().slots.get(0) != null) items.useSlot(0);
+            if (shieldActive()) {
+                step = Step.COMPLETE;
+                showNotice("Shield on! It blocks one hit.");
+            } else if (items.getView().drops.isEmpty()) spawnShield(width / 2.0, height / 2.0);
         }
         items.drainEvents(); // No persistent listeners or achievement callbacks.
+    }
+
+    private boolean shieldActive() {
+        for (EffectView effect : items.getView().effects)
+            if (effect.item.effectKind == EffectKind.SHIELD) return true;
+        return false;
     }
 
     private void spawnShield(final double x, final double y) {
@@ -188,7 +193,7 @@ public final class TutorialScreen extends Screen {
                 step = Step.PICKUP;
             }
             if (hit || bullet.getPositionY() + bullet.getHeight() < ARENA_TOP
-                    || step == Step.PICKUP || step == Step.USE_ITEM) {
+                    || step == Step.PICKUP) {
                 it.remove();
                 expired.add(bullet);
             }
@@ -213,14 +218,12 @@ public final class TutorialScreen extends Screen {
         drawManager.drawScreenTitle(this, "TUTORIAL");
         String instruction, detail;
         switch (step) {
-        case MOVE: instruction = "1/6  Move: WASD or arrow keys"; detail = "Move in any direction to begin."; break;
-        case DASH: instruction = "2/6  Press " + ControlKeys.DASH_LABEL.toUpperCase() + " to dash";
+        case MOVE: instruction = "1/5  Move: WASD or arrow keys"; detail = "Move in any direction to begin."; break;
+        case DASH: instruction = "2/5  Press " + ControlKeys.DASH_LABEL.toUpperCase() + " to dash";
             detail = "Bullets pass through you mid-dash."; break;
-        case SHOOT: instruction = "3/6  Hold SPACE to fire"; detail = "Holding SPACE fires repeatedly."; break;
-        case DEFEAT: instruction = "4/6  Defeat the practice enemy"; detail = "Move below the target and fire."; break;
-        case PICKUP: instruction = "5/6  Collect the Shield"; detail = "Touch the falling shield icon."; break;
-        case USE_ITEM: instruction = "6/6  Press " + ControlKeys.itemSlotLabel(0) + " to use Shield";
-            detail = "Z, X and C use item slots 1 to 3."; break;
+        case SHOOT: instruction = "3/5  Hold SPACE to fire"; detail = "Holding SPACE fires repeatedly."; break;
+        case DEFEAT: instruction = "4/5  Defeat the practice enemy"; detail = "Move below the target and fire."; break;
+        case PICKUP: instruction = "5/5  Catch the Shield"; detail = "Items work as soon as you catch them."; break;
         default: instruction = "Tutorial complete!"; detail = "Press ENTER to start Stage 1"; break;
         }
         drawManager.drawCenteredRegularString(this, instruction, 120);
@@ -228,8 +231,6 @@ public final class TutorialScreen extends Screen {
         if (noticeFrames > 0) drawManager.drawCenteredRegularString(this, notice, 170);
         else if (step == Step.COMPLETE)
             drawManager.drawCenteredRegularString(this, "P: pause | "
-                    + ControlKeys.itemSlotLabel(0) + "/" + ControlKeys.itemSlotLabel(1) + "/"
-                    + ControlKeys.itemSlotLabel(2) + ": items | "
                     + ControlKeys.DASH_LABEL.toUpperCase() + ": dash", 170);
         drawItems();
         drawManager.drawEntity(ship, ship.getPositionX(), ship.getPositionY());
@@ -243,13 +244,6 @@ public final class TutorialScreen extends Screen {
     /** Tutorial presentation only; pickup, inventory and effects use the real item implementation. */
     private void drawItems() {
         View view = items.getView();
-        for (int i = 0; i < view.slots.size(); i++) {
-            int x = 12 + i * 75;
-            boolean occupied = view.slots.get(i) != null;
-            drawManager.drawBox(x, 76, 65, 22, occupied ? Color.CYAN : Color.GRAY);
-            drawManager.drawRegularString(ControlKeys.itemSlotLabel(i) + (occupied ? " SH" : " --"), x + 4, 93,
-                    occupied ? Color.CYAN : Color.GRAY);
-        }
         for (DropView drop : view.drops) {
             int x = (int) drop.bounds.x, y = (int) drop.bounds.y;
             drawManager.drawItemIcon(drop.item.effectKind, x, y,

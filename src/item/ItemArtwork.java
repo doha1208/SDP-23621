@@ -69,7 +69,10 @@ public final class ItemArtwork {
             g.fillRect(0, 42, width, 18);
             g.setFont(font.deriveFont(9f));
             int x = 5;
-            for (int i = 0; i < view.slots.size(); i++) {
+            // Team Entities: with auto-use pickups the slots stay empty, so empty slots are not drawn.
+            boolean anyStored = false;
+            for (ItemInfo stored : view.slots) anyStored |= stored != null;
+            for (int i = 0; anyStored && i < view.slots.size(); i++) {
                 g.setColor(new Color(167, 185, 204));
                 g.drawString(engine.ControlKeys.itemSlotLabel(i), x, 55);
                 if (view.slots.get(i) == null) {

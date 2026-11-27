@@ -126,10 +126,10 @@ public final class ItemVisualGameTest {
             call(game, "resumeGameplay");
             call(game, "update");
             check(items.shield().remainingMillis == duration, "Resume discards paused wall time");
-            items.useSlot(1);
-            check(items.api().getView().slots.get(1) != null, "Already active rejection preserves the held item");
-            check(items.getNotice().contains("already active"), "Rejection shows its cause");
-            call(game, "draw"); snapshot(output, "game-item-rejected");
+            // Freeze restarts while active, like the shield (auto-use pickups need this).
+            check(items.useSlot(1) == UseResult.USED && items.api().getView().slots.get(1) == null,
+                "Freeze used while active restarts it");
+            call(game, "draw"); snapshot(output, "game-item-refreshed");
             // Optional short hold is for human/native screenshot inspection, not gameplay automation.
             if (args.length > 1 && args[1].equals("--hold")) Thread.sleep(45000);
             System.out.println("ItemVisualGameTest: " + checks + " checks passed");
