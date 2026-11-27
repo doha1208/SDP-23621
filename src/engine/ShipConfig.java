@@ -30,6 +30,10 @@ public final class ShipConfig {
 	static final String TOP_LIMIT_KEY = "move.topLimit";
 	/** Default top limit: a fifth of the screen from the top. */
 	public static final double DEFAULT_TOP_LIMIT = 0.2d;
+	/** Key of the blinking, unhittable time after losing a life. */
+	static final String INVINCIBLE_KEY = "hit.invincibleSeconds";
+	/** Default blinking, unhittable time after losing a life. */
+	public static final double DEFAULT_INVINCIBLE_SECONDS = 2.0d;
 
 	/** Not instantiable. */
 	private ShipConfig() {
@@ -40,19 +44,41 @@ public final class ShipConfig {
 	 *         from the top (0.0 to 1.0).
 	 */
 	public static double topLimit() {
-		String raw = load().getProperty(TOP_LIMIT_KEY);
+		return number(TOP_LIMIT_KEY, DEFAULT_TOP_LIMIT, 0.0d, 1.0d);
+	}
+
+	/**
+	 * @return Seconds the ship blinks and cannot be hit after losing a
+	 *         life (Team Entities), 0 to 10.
+	 */
+	public static double invincibleSeconds() {
+		return number(INVINCIBLE_KEY, DEFAULT_INVINCIBLE_SECONDS, 0.0d, 10.0d);
+	}
+
+	/**
+	 * Reads a number in a range, or the default with a warning.
+	 *
+	 * @param key      Property key.
+	 * @param fallback Default value.
+	 * @param min      Lowest allowed value.
+	 * @param max      Highest allowed value.
+	 * @return The value.
+	 */
+	private static double number(final String key, final double fallback,
+			final double min, final double max) {
+		String raw = load().getProperty(key);
 		if (raw == null)
-			return DEFAULT_TOP_LIMIT;
+			return fallback;
 		try {
 			double value = Double.parseDouble(raw.trim());
-			if (value >= 0.0d && value <= 1.0d)
+			if (value >= min && value <= max)
 				return value;
 		} catch (NumberFormatException e) {
 			// Falls through to the warning below.
 		}
-		Core.getLogger().warning("Invalid ship value " + TOP_LIMIT_KEY + "="
-				+ raw + ", using " + DEFAULT_TOP_LIMIT + ".");
-		return DEFAULT_TOP_LIMIT;
+		Core.getLogger().warning("Invalid ship value " + key + "="
+				+ raw + ", using " + fallback + ".");
+		return fallback;
 	}
 
 	/**

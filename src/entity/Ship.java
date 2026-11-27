@@ -159,6 +159,8 @@ public class Ship extends Entity {
 	private static final int BLINK_INTERVAL = 200;
 	private static final Color BASE_COLOR = Color.GREEN;
 	private static final Color BLINK_COLOR = new Color(255, 60, 60);
+	/** Frames the ship is shown, then hidden, while invincible (Team Entities). */
+	private static final int INVINCIBLE_BLINK_FRAMES = 6;
 
 	/** Colour of the ship when not blinking; changed by skins (GoG). */
 	private Color skinColor = BASE_COLOR;
@@ -167,6 +169,11 @@ public class Ship extends Entity {
 	private Cooldown shootingCooldown;
 	/** Time spent inactive between hits. */
 	private Cooldown destructionCooldown;
+	/**
+	 * Gameplay frames left in which the ship cannot be hit, after losing a
+	 * life (Team Entities). The ship blinks but keeps moving and shooting.
+	 */
+	private int invincibleFrames;
 	/** Extra shots per second from items, added to the base rate (Team CS). */
 	private double itemFireRateBonus;
 	/** Extra bullet speed from items, added to the base speed (Team CS). */
@@ -417,6 +424,8 @@ public class Ship extends Entity {
 	 * Updates status of the ship.
 	 */
 	public final void update() {
+		if (this.invincibleFrames > 0)
+			this.invincibleFrames--;
 		if (!this.destructionCooldown.checkFinished())
 			this.spriteType = SpriteType.ShipDestroyed;
 		else
@@ -456,6 +465,32 @@ public class Ship extends Entity {
 	 */
 	public final void destroy() {
 		this.destructionCooldown.reset();
+	}
+
+	/**
+	 * Makes the ship unhittable for a while after losing a life (Team
+	 * Entities). It blinks but can still move and shoot. Counted in
+	 * gameplay frames, so pausing pauses it too.
+	 *
+	 * @param frames
+	 *            Gameplay frames the ship stays unhittable.
+	 */
+	public final void startInvincibility(final int frames) {
+		this.invincibleFrames = Math.max(this.invincibleFrames, frames);
+	}
+
+	/** @return True while the ship cannot be hit after losing a life. */
+	public final boolean isInvincible() {
+		return this.invincibleFrames > 0;
+	}
+
+	/**
+	 * @return True on the frames an invincible ship is hidden, which makes
+	 *         it blink.
+	 */
+	public final boolean isBlinkHidden() {
+		return this.invincibleFrames > 0
+				&& (this.invincibleFrames / INVINCIBLE_BLINK_FRAMES) % 2 == 1;
 	}
 
 	/**

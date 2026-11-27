@@ -211,7 +211,10 @@ public final class DashDodgeTest {
         onShip(ship, enemyBullets, bullets);
         call(game, "manageCollisions", new Class<?>[] {});
         check((Integer) field(GameScreen.class, "lives").get(game) == lives - 1, "Hit lands after the dash");
-        check(ship.isDestroyed(), "Ship explodes after the dash");
+        // Losing a life (not the last) makes the ship blink instead of
+        // exploding (Team Entities); a destroyed ship still hides the dash look.
+        check(!ship.isDestroyed() && ship.isInvincible(), "Ship blinks after the hit instead of exploding");
+        ship.destroy();
         call(game, "updateDashEffect", new Class<?>[] {});
         check(look.getGhostCount() == 0, "No dash look while the ship is destroyed");
         shift(false);

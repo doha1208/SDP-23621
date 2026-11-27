@@ -174,6 +174,8 @@ public class GameScreen extends Screen {
 	private int level;
 	/** Highest y the top of the ship may reach, from res/ship.properties. */
 	private int shipTopY;
+	/** Frames the ship blinks and cannot be hit after losing a life, from res/ship.properties. */
+	private int shipInvincibleFrames;
 	/** Enemies and enemy bullets of this level (Team Entities enemy overhaul). */
 	private EnemyManager enemyManager;
 	/** Decides when enemies spawn; normal stages only. */
@@ -407,6 +409,8 @@ public class GameScreen extends Screen {
 		this.shipTopY = Math.max(SEPARATION_LINE_HEIGHT,
 				Math.min(this.height - SHIP_BOTTOM_GAP,
 						(int) (this.height * ShipConfig.topLimit())));
+		this.shipInvincibleFrames = (int) Math.round(
+				ShipConfig.invincibleSeconds() * this.fps);
 
 		// Distinct mid-boss and final boss encounters.
 		this.enemyManager = new EnemyManager(this.width, this.height,
@@ -985,7 +989,8 @@ public class GameScreen extends Screen {
 						engine.GhostTrail.isBoosting(this.items));
 			if (!warping)
 				drawDashTrail(); // Team CS
-			if (!warping)
+			// The ship blinks while it cannot be hit after losing a life.
+			if (!warping && !this.ship.isBlinkHidden())
 				drawManager.drawEntity(this.ship, this.ship.getPositionX(),
 						this.ship.getPositionY());
 			if (!warping)
@@ -1157,9 +1162,9 @@ public class GameScreen extends Screen {
 		Set<Bullet> recyclable = new HashSet<Bullet>();
 		for (Bullet bullet : this.bullets) {
 			if (bullet.getSpeed() > 0) {
-				// A dashing ship dodges: the bullet flies on (Team CS).
+				// A dashing or blinking ship dodges: the bullet flies on (Team CS).
 				if (checkCollision(bullet, this.ship) && !this.levelFinished
-						&& !this.dash.isDashing()) {
+						&& !this.dash.isDashing() && !this.ship.isInvincible()) {
 					recyclable.add(bullet);
 					hitPlayer();
 				}
@@ -1258,7 +1263,10 @@ public class GameScreen extends Screen {
 	 * dodges all of it: bullets fly on and enemies pass by (Team CS).
 	 */
 	private void manageEnemyCollisions() {
-		if (this.levelFinished || this.dash.isDashing())
+		// A dashing ship, or one still blinking from a hit, lets bullets and
+		// enemies pass through (Team CS dash, Team Entities blink).
+		if (this.levelFinished || this.dash.isDashing()
+				|| this.ship.isInvincible())
 			return;
 		Iterator<EnemyBullet> enemyBullets = this.enemyManager.getBullets()
 				.iterator();
@@ -1287,15 +1295,20 @@ public class GameScreen extends Screen {
 
 	/**
 	 * The player is hit by a bullet or an enemy: loses a life unless the
-	 * ship is already exploding or a shield blocks it.
+	 * ship is still blinking from the last hit or a shield blocks it. The
+	 * ship then blinks for a while and cannot be hit, but keeps moving and
+	 * shooting; only the last life makes it explode (Team Entities).
 	 */
 	private void hitPlayer() {
 		if (this.levelFinished || this.lives <= 0)
 			return;
-		if (!this.ship.isDestroyed()
+		if (!this.ship.isDestroyed() && !this.ship.isInvincible()
 				&& !this.items.tryBlockHit()) { // Shield item (Team CS)
-			this.ship.destroy();
 			this.lives--;
+			if (this.lives > 0)
+				this.ship.startInvincibility(this.shipInvincibleFrames);
+			else
+				this.ship.destroy();
 			PlayerSounds.playHit(this.lives); // <-- Ajout du son
 			this.tookDamage = true; // Survivor tiers (Mantis)
 			GameEvents.emit(GameEvents.Type.PLAYER_HIT, this.lives); // AUTHORED BY: VFX TEAM (Effection)
