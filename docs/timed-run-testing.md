@@ -1,6 +1,11 @@
 # Timed run
 
-Normal Play uses one run: **120 active seconds → one boss → results**.
+> **Opt-in.** Normal Play goes through stages 1 to 10 again, each with its own
+> enemy settings (`res/levels/stageN.properties`) and bosses on stages 5 and
+> 10. Start the game with `-Dgame.timedRun=true` to play the timed run
+> described below instead.
+
+The timed run is one run: **120 active seconds → one boss → results**.
 Countdowns and pauses do not consume combat time. The HUD shows `BOSS IN 2:00`,
 then `BOSS`, and `CLEAR` on victory. Results say `Run Clear` or `Game Over`.
 
@@ -19,11 +24,11 @@ directly to the menu. Already-collected coins follow the existing persistence ru
 Pause → Restart starts the whole run again and refunds this attempt's coins;
 temporary inventory/effects are reset while purchased equipment is reapplied.
 
-The default run counts as one completed level and awards one clear diamond.
+The timed run counts as one completed level and awards one clear diamond.
 A full timed clear counts as a campaign win for Infinity Void and Fleet Master.
 Fleet Master still requires a clear with every ship and accepts saved stage 10
-clears. Existing stage diagnostics (`-Dgame.startLevel=2` through `10`) keep
-their stage-based rewards and cash-out screen.
+clears. Stage play (the default, and `-Dgame.startLevel=2` through `10`) keeps
+its stage-based rewards and cash-out screen.
 `-Dinvaders.bossOrder=fortress` or `raider` selects the boss for verification.
 `-Dinvaders.levelSeed=1` keeps enemy and boss randomness repeatable.
 
