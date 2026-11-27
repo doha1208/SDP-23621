@@ -39,8 +39,8 @@ import item.ItemAPI.*;
  * Call only from the thread that owns game state.
  */
 public final class ItemSystem {
-    /** Drops exist below the HUD separator line (same height as GameScreen's separator). */
-    private static final double PLAY_AREA_TOP = 40;
+    /** Drops bounce below the item HUD row (y 42 to 60), so they are never hidden under it (Team Entities). */
+    private static final double PLAY_AREA_TOP = 60;
 
     private static ItemSystem current;
 

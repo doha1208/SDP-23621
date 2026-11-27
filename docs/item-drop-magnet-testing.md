@@ -1,13 +1,14 @@
 # Item drops and magnet
 
-Items now descend diagonally, choosing a new downward direction at regular
-intervals and reflecting off the left and right walls. They pass the player's
-height and disappear once fully below the screen; they no longer land or wait
-for an eight-second ground lifetime. Pickup checks follow every movement
-segment, including diagonal travel and wall reflections.
+Items fly off in a random direction and bounce off all four walls of the play
+area (left, right, the item HUD row at the top, and the screen bottom). After
+`drop.bounceMillis` they stop bouncing, keep going straight through the next
+wall and disappear once fully outside the play area (Team Entities, 2026-11-27).
+Pickup checks follow every movement segment, including wall bounces. Caught
+items work at once (`pickup.autoUse`).
 
 An equipped magnet attracts drops within a center-to-center radius. Attraction
-takes priority over random descent and remains active after leaving the initial
+takes priority over bouncing and remains active after leaving the initial
 radius. Attracted drops follow the player's current position, including upward
 movement, and are collected only on contact. A drop that cannot be collected on
 magnet contact converts to the configured score. Without the magnet, failed
@@ -22,15 +23,15 @@ must be positive; invalid values fail at load time.
 
 | Setting | Default | Meaning |
 | --- | ---: | --- |
-| `drop.fallSpeed` | 80 | Base downward speed in pixels/second; each direction uses 0.75–1.25 times this value. |
-| `drop.horizontalSpeed` | 65 | Horizontal speed in pixels/second; each direction uses 0.5–1 times this value, left or right. |
-| `drop.directionChangeMillis` | 700 | Time between random direction choices. |
+| `drop.speed` | 150 | Flying speed in pixels/second; each drop uses 0.85 to 1.15 times this value. |
+| `drop.bounceMillis` | 6000 | How long a drop bounces before it flies out past a wall. |
 | `equip.magnet.range` | 140 | Center-to-center attraction radius in pixels. |
 | `equip.magnet.speed` | 260 | Attraction speed in pixels/second. |
 | `equip.magnet.convertScore` | 50 | Score for an attracted drop that cannot be kept on contact. |
 
-`drop.groundLifetimeMillis` remains only for compatibility with the old rules
-constructor and has no effect on drop removal.
+`drop.groundLifetimeMillis`, `drop.fallSpeed`, `drop.horizontalSpeed` and
+`drop.directionChangeMillis` remain only for compatibility and no longer change
+how drops move.
 
 ## Automated checks
 
@@ -49,6 +50,9 @@ java -Djava.awt.headless=true -cp "$check_dir/classes:res" EffectIntegrationTest
 xvfb-run -a java -cp "$check_dir/classes:res" GameplayStarfieldTest "$check_dir/screenshots"
 java -Djava.awt.headless=true -cp "$check_dir/classes:res" item.ItemDropMagnetDemo "$check_dir/screenshots/item-drop-magnet.png"
 ```
+
+The results below predate the bouncing movement (the item suite is not in this
+repository).
 
 The item regression checks cover downward random motion, direction changes,
 wall reflections, screen exit, swept contact, magnet radius and persistent
@@ -79,11 +83,14 @@ attraction before contact, and full-inventory conversion after contact.
 
 ## Manual checks
 
-1. Start `engine.Core`, select Play, and skip the tutorial with S if desired.
-2. Destroy enemies and watch drops drift left/right while continuing downward.
-3. Let a drop miss the ship: it should pass the ship and leave the screen.
+1. Start `engine.Core`, select Play, and skip the tutorial with ENTER if desired.
+2. Destroy enemies and watch drops fly in all directions and bounce off every
+   wall, including the top (just below the item HUD row) and the bottom.
+3. Leave a drop alone: after about six seconds it stops bouncing, flies out
+   past the next wall and disappears.
 4. Equip Magnet before a new run. Approach a drop until it starts following,
    then move away; it should continue following until contact.
 5. Move above an attracted drop and confirm it follows upward.
-6. Fill the manual-item inventory, then attract another manual item: contact
-   should remove it and award the configured conversion score once.
+6. Reach the max stacks of a stacking item (or set `pickup.autoUse=false` and
+   fill the inventory), then attract another one: contact should remove it and
+   award the configured conversion score once.

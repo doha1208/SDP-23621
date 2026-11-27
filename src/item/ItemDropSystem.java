@@ -9,7 +9,8 @@ import java.util.Random;
 import item.ItemAPI.*;
 
 /**
- * Owns spawning, downward wandering, wall reflection, magnet attraction, swept contact and offscreen removal.
+ * Owns spawning, bouncing off all four walls, magnet attraction, swept contact and offscreen removal
+ * (bouncing movement: Team Entities).
  * No separate files, no Entity subclass, no inventory/effect changes, no game object references.
  * No event queue here. The manager receives spawn/expire/contact results and records them as events.
  */
@@ -24,7 +25,9 @@ class ItemDropSystem {
     private static class DroppedItem {
         final long id;
         final ItemInfo info;
-        double x, y, velocityX, velocityY, directionMillis;
+        double x, y, velocityX, velocityY;
+        /** Time spent bouncing; past drop.bounceMillis the drop stops bouncing and leaves (Team Entities). */
+        double ageMillis;
         boolean magnetized;
 
         DroppedItem(long id, ItemInfo info, double x, double y) {
@@ -114,8 +117,10 @@ class ItemDropSystem {
     }
 
     /**
-     * Advances game time only (no wall clock). Splits wandering paths at every turn, wall,
-     * bottom and magnet-range entry, so contact tests follow the actual path.
+     * Advances game time only (no wall clock). Splits paths at every wall bounce and magnet-range
+     * entry, so contact tests follow the actual path.
+     * Drops fly in a straight line and bounce off all four walls of the play area for
+     * drop.bounceMillis; after that they stop bouncing and are removed once fully outside it.
      * Contact before an offscreen exit wins; the manager then decides pickup/conversion.
      * Uncollectable ordinary drops keep moving and expire on a later update if necessary.
      */
@@ -130,10 +135,10 @@ class ItemDropSystem {
         Iterator<DroppedItem> iterator = items.values().iterator();
         while (iterator.hasNext()) {
             DroppedItem item = iterator.next();
-            DropView contact = item.y >= rules.floorY ? null : move(item, delta, player, magnetEquipped);
+            DropView contact = outside(item) ? null : move(item, delta, player, magnetEquipped);
             if (contact != null) {
                 contacts.add(contact);
-            } else if (item.y >= rules.floorY) {
+            } else if (outside(item)) {
                 iterator.remove();
                 expired.add(item.view(rules));
             }
@@ -141,11 +146,32 @@ class ItemDropSystem {
         return new Frame(expired, contacts);
     }
 
+    /**
+     * Random direction with both parts at least about a third of the speed, so a drop never
+     * slides along one wall. An axis with no room (area exactly one drop wide/high) gets no speed.
+     */
     private void chooseDirection(DroppedItem item) {
-        item.velocityX = (random.nextBoolean() ? 1 : -1)
-            * balance.horizontalSpeed * (0.5 + random.nextDouble() * 0.5);
-        item.velocityY = rules.fallSpeed * (0.75 + random.nextDouble() * 0.5);
-        item.directionMillis = balance.directionChangeMillis;
+        double speed = balance.bounceSpeed * (0.85 + random.nextDouble() * 0.3);
+        double angle = Math.toRadians(20 + random.nextDouble() * 50);
+        item.velocityX = (random.nextBoolean() ? 1 : -1) * speed * Math.cos(angle);
+        item.velocityY = (random.nextBoolean() ? 1 : -1) * speed * Math.sin(angle);
+        if (rules.right - rules.pickupWidth <= rules.left) item.velocityX = 0;
+        if (rules.floorY - rules.pickupHeight <= rules.top) item.velocityY = 0;
+        if (item.velocityX == 0 && item.velocityY == 0) item.velocityY = speed;
+        item.ageMillis = 0;
+    }
+
+    /** Fully outside the play area. Only possible after the bouncing time ends. */
+    private boolean outside(DroppedItem item) {
+        return item.x + rules.pickupWidth <= rules.left || item.x >= rules.right
+            || item.y + rules.pickupHeight <= rules.top || item.y >= rules.floorY;
+    }
+
+    /** Milliseconds until a wall along one axis, or infinity when moving away from walls/no room. */
+    private static double wallMillis(double position, double velocity, double low, double high) {
+        if (velocity == 0 || high <= low) return Double.POSITIVE_INFINITY;
+        double wall = velocity > 0 ? high : low;
+        return Math.max(0, (wall - position) / velocity * 1000);
     }
 
     private DropView move(DroppedItem item, long delta, PlayerSnapshot player, boolean magnetEquipped) {
@@ -155,8 +181,9 @@ class ItemDropSystem {
         if (attract && Math.hypot(item.x - targetX, item.y - targetY) <= balance.magnetRange)
             item.magnetized = true;
         DropView contact = player.canPickup ? contactAlong(item, 0, 0, player.bounds) : null;
+        double right = rules.right - rules.pickupWidth, bottom = rules.floorY - rules.pickupHeight;
         double remaining = delta;
-        while (remaining > 0 && item.y < rules.floorY) {
+        while (remaining > 0 && !outside(item)) {
             if (attract && item.magnetized) {
                 double dx = targetX - item.x, dy = targetY - item.y;
                 double distance = Math.hypot(dx, dy);
@@ -171,17 +198,12 @@ class ItemDropSystem {
                 break;
             }
 
-            if (item.directionMillis <= 0) chooseDirection(item);
-            double right = rules.right - rules.pickupWidth;
-            if (item.x <= rules.left) item.velocityX = Math.abs(item.velocityX);
-            if (item.x >= right) item.velocityX = -Math.abs(item.velocityX);
-            // A play area exactly one item wide has no horizontal room.
-            double vx = right == rules.left ? 0 : item.velocityX;
-            double wallMillis = vx == 0 ? Double.POSITIVE_INFINITY
-                : ((vx > 0 ? right : rules.left) - item.x) / vx * 1000;
-            double bottomMillis = (rules.floorY - item.y) / item.velocityY * 1000;
-            double step = Math.min(remaining, Math.min(item.directionMillis, Math.min(wallMillis, bottomMillis)));
-            double dx = vx * (step / 1000.0), dy = item.velocityY * (step / 1000.0);
+            boolean bouncing = item.ageMillis < balance.bounceMillis;
+            double wallX = bouncing ? wallMillis(item.x, item.velocityX, rules.left, right) : Double.POSITIVE_INFINITY;
+            double wallY = bouncing ? wallMillis(item.y, item.velocityY, rules.top, bottom) : Double.POSITIVE_INFINITY;
+            double bounceLeft = bouncing ? balance.bounceMillis - item.ageMillis : Double.POSITIVE_INFINITY;
+            double step = Math.min(remaining, Math.min(bounceLeft, Math.min(wallX, wallY)));
+            double dx = item.velocityX * (step / 1000.0), dy = item.velocityY * (step / 1000.0);
             double entry = attract && !item.magnetized
                 ? rangeEntry(item.x - targetX, item.y - targetY, dx, dy, balance.magnetRange)
                 : Double.POSITIVE_INFINITY;
@@ -192,21 +214,25 @@ class ItemDropSystem {
                 dy *= entry;
             }
             if (contact == null && player.canPickup) contact = contactAlong(item, dx, dy, player.bounds);
-            item.x = Math.max(rules.left, Math.min(right, item.x + dx));
+            item.x += dx;
             item.y += dy;
             remaining = Math.max(0, remaining - step);
-            item.directionMillis = Math.max(0, item.directionMillis - step);
+            item.ageMillis = step == bounceLeft ? balance.bounceMillis : item.ageMillis + step;
             if (captured) {
                 item.magnetized = true;
                 // Range entry may coincide with contact at the segment endpoint.
                 DropView attractedContact = contactAlong(item, 0, 0, player.bounds);
                 if (attractedContact != null) contact = attractedContact;
             } else {
-                if (step == wallMillis) {
-                    item.x = vx > 0 ? right : rules.left;
+                // Bounce: snap to the wall and turn back along that axis.
+                if (step == wallX) {
+                    item.x = item.velocityX > 0 ? right : rules.left;
                     item.velocityX = -item.velocityX;
                 }
-                if (step == bottomMillis) item.y = rules.floorY;
+                if (step == wallY) {
+                    item.y = item.velocityY > 0 ? bottom : rules.top;
+                    item.velocityY = -item.velocityY;
+                }
             }
         }
         return contact;

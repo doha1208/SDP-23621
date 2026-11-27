@@ -44,6 +44,9 @@ final class ItemBalance {
     final Map<String, Double> dropWeights;
     final double fallSpeed, horizontalSpeed, dropWidth, dropHeight;
     final long directionChangeMillis;
+    /** Bouncing drops (Team Entities): speed in px/s and how long they bounce before flying off screen. */
+    final double bounceSpeed;
+    final long bounceMillis;
     /** Legacy LevelRules constructor value; drops no longer land or use a ground lifetime. */
     final long groundLifetimeMillis;
 
@@ -123,6 +126,8 @@ final class ItemBalance {
         fallSpeed = positiveDouble(settings, "drop.fallSpeed", 80);
         horizontalSpeed = positiveDouble(settings, "drop.horizontalSpeed", 65);
         directionChangeMillis = positiveLong(settings, "drop.directionChangeMillis", 700L);
+        bounceSpeed = positiveDouble(settings, "drop.speed", 150);
+        bounceMillis = positiveLong(settings, "drop.bounceMillis", 6_000L);
         dropWidth = positiveDouble(settings, "drop.width", 24);
         dropHeight = positiveDouble(settings, "drop.height", 24);
         groundLifetimeMillis = positiveLong(settings, "drop.groundLifetimeMillis", 8_000L);
