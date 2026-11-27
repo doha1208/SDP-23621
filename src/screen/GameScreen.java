@@ -104,6 +104,8 @@ public class GameScreen extends Screen {
 	private static final int ACHIEVEMENT_POPUP_SLIDE_OUT = 350;
 	/** Height of the interface separation line. */
 	private static final int SEPARATION_LINE_HEIGHT = 40;
+	/** Height of the solid band behind the score bar; the item bar starts below it. */
+	private static final int HUD_BAND_HEIGHT = 42;
 	/** Gap between the ship's starting row and the bottom of the screen. */
 	private static final int SHIP_BOTTOM_GAP = 30;
 	/** Lives at or below this value start the glitch. */
@@ -1024,7 +1026,10 @@ public class GameScreen extends Screen {
 		// Points popups (above the dim, under the HUD). AUTHORED BY: VFX TEAM (Effection)
 		drawManager.drawPointsEffect(this, this.pointsEffect);
 
-		// Interface.
+		// Interface. A solid band behind the score bar, down to where the
+		// item bar starts (y=42), so enemies entering from the top and the
+		// stars do not show through it (Team Entities).
+		drawManager.fillBox(0, 0, this.width, HUD_BAND_HEIGHT, Color.BLACK);
 		drawManager.drawScore(this, this.score);
 		drawManager.drawLives(this, this.lives);
 		if (this.timedRun != null)
