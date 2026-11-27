@@ -1632,6 +1632,31 @@ public final class DrawManager {
 	}
 
 	/**
+	 * Short banner shown for a moment before a level starts (Team
+	 * Entities): the level name in small letters over a big "START!".
+	 * Replaces the old 3-2-1 countdown, which stays in drawCountDown.
+	 *
+	 * @param screen
+	 *            Screen to draw on.
+	 * @param level
+	 *            Level about to start.
+	 * @param bonusLife
+	 *            Whether this level gives a bonus life.
+	 */
+	public void drawStartBanner(final Screen screen, final int level,
+			final boolean bonusLife) {
+		int rectHeight = screen.getHeight() / 6;
+		int middle = screen.getHeight() / 2;
+		backBufferGraphics.setColor(Color.BLACK);
+		backBufferGraphics.fillRect(0, middle - rectHeight / 2,
+				screen.getWidth(), rectHeight);
+		backBufferGraphics.setColor(Color.GREEN);
+		drawCenteredRegularString(screen, "Level " + level
+				+ (bonusLife ? " - Bonus life!" : ""), middle - 14);
+		drawCenteredBigString(screen, "START!", middle + 24);
+	}
+
+	/**
 	 * Countdown to game start.
 	 *
 	 * @param screen

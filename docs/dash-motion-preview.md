@@ -54,7 +54,7 @@ The dash replaces the earlier idea of a spin in place as the ship's dodge.
 | Dodge | Enemy bullets, boss attacks and ramming enemies pass through while dashing |
 | Recharge | 1.5 s after the dash ends |
 
-- The level countdown shows `P to pause, Ctrl to dash`.
+- The short START banner before each level shows `P to pause, Ctrl to dash`.
 - Arrow keys do nothing while the dash moves the ship; shooting still works.
 - A thin bar under the ship fills while the dash recharges and disappears once
   the next dash is ready.

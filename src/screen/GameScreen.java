@@ -65,8 +65,8 @@ import item.ItemAPI.ItemEvent;
  */
 public class GameScreen extends Screen {
 
-	/** Milliseconds until the screen accepts user input. */
-	private static final int INPUT_DELAY = 6000;
+	/** Milliseconds until the screen accepts user input: a short START banner (Team Entities, was a 6 s countdown). */
+	private static final int INPUT_DELAY = 900;
 	/** Bonus score for each life remaining at the end of the level. */
 	private static final int LIFE_SCORE = 100;
 	/** Time from finishing the level to screen change. */
@@ -1089,14 +1089,11 @@ public class GameScreen extends Screen {
 					"w+s / arrows to move, space to select, P to resume");
 		}
 
-		// Countdown to game start (skipped while paused, so the pause menu
-		// stays visible instead of being painted over).
+		// Short START banner before play (skipped while paused, so the pause
+		// menu stays visible instead of being painted over). Team Entities:
+		// replaces the old level name + 3-2-1 countdown.
 		if (!this.paused && !this.inputDelay.checkFinished()) {
-			int countdown = (int) ((INPUT_DELAY
-					- (System.currentTimeMillis()
-					- this.gameStartTime)) / 1000);
-			drawManager.drawCountDown(this, this.level, countdown,
-					this.bonusLife);
+			drawManager.drawStartBanner(this, this.level, this.bonusLife);
 			drawManager.drawHorizontalLine(this, this.height / 2 - this.height
 					/ 12);
 			drawManager.drawHorizontalLine(this, this.height / 2 + this.height
