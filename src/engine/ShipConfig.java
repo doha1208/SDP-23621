@@ -28,8 +28,8 @@ public final class ShipConfig {
 	static final String FILE_NAME = "ship.properties";
 	/** Key of the top limit. */
 	static final String TOP_LIMIT_KEY = "move.topLimit";
-	/** Default top limit: the middle of the screen. */
-	public static final double DEFAULT_TOP_LIMIT = 0.5d;
+	/** Default top limit: a fifth of the screen from the top. */
+	public static final double DEFAULT_TOP_LIMIT = 0.2d;
 
 	/** Not instantiable. */
 	private ShipConfig() {
