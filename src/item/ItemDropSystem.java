@@ -305,13 +305,22 @@ class ItemDropSystem {
         rules = null;
     }
 
+    /**
+     * Weight after stacking. An item at max stacks never drops. The decay counts the item's own stacks,
+     * or with drop.upgradeDecay.shared the stacks of every upgrade together, so the first one or two
+     * upgrades come easily and later ones get rare (Team Entities).
+     */
     private double effectiveWeight(DropRule rule, String itemId, double weight, Map<String, Integer> stacks) {
         if (weight <= 0) return 0;
         Integer count = stacks.get(itemId);
-        if (count == null || count <= 0) return weight;
         ItemInfo info = definitions.find(itemId);
-        if (info != null && info.maxStacks != null && count >= info.maxStacks) return 0;
-        return rule.weightFor(itemId, weight, count);
+        if (count != null && info != null && info.maxStacks != null && count >= info.maxStacks) return 0;
+        int decayCount = count == null ? 0 : count;
+        if (balance.sharedUpgradeDecay) {
+            decayCount = 0;
+            for (int stack : stacks.values()) decayCount += Math.max(0, stack);
+        }
+        return decayCount <= 0 ? weight : rule.weightFor(itemId, weight, decayCount);
     }
 
     /** Internal result. A plain value object with no movement/contact logic. */

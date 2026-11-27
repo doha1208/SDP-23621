@@ -32,6 +32,8 @@ final class ItemBalance {
     final double rapidFireBonus, bulletSpeedBonus;
     final int rapidFireMaxStacks, bulletSpeedMaxStacks, spreadMaxStacks, pierceMaxStacks;
     final double rapidFireDropDecay, bulletSpeedDropDecay, spreadDropDecay, pierceDropDecay;
+    /** true: an upgrade's drop decay counts the stacks of all upgrades together, not just its own (Team Entities). */
+    final boolean sharedUpgradeDecay;
     final long freezeDurationMillis;
     final long boostDurationMillis, scoreBoostDurationMillis;
     final double boostMultiplier, scoreBoostMultiplier;
@@ -113,6 +115,7 @@ final class ItemBalance {
         lifeCapBonusScore = nonNegativeInt(settings, "life.capBonusScore", 200);
 
         regularDropProbability = probability(settings, "drop.regular.probability", 0.15);
+        sharedUpgradeDecay = flag(settings, "drop.upgradeDecay.shared", false);
         specialDropProbability = probability(settings, "drop.special.probability", 1.0);
         Map<String, Double> weights = new LinkedHashMap<String, Double>();
         weights.put("life", weight(settings, "drop.weight.life", 0.6));

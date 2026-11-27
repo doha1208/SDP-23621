@@ -64,3 +64,4 @@ Java 17 대상 전체 소스·테스트 컴파일이 경고 없이 성공했고,
 - 획득 즉시 발동: Shield·Freeze·Boost·Score Boost는 잡는 순간 효과가 시작되고 슬롯에 들어가지 않는다. 같은 효과가 이미 켜져 있으면 시간을 처음부터 다시 센다(Freeze 포함, 위의 "Freeze 재사용 거절" 정책을 바꿈). `res/item-balance.properties`의 `pickup.autoUse=false`로 이전 방식(슬롯 + Z/X/C)을 되돌릴 수 있다. 직접 지급(`tryGrant`)은 지금도 슬롯에 넣는다.
 - HUD는 빈 슬롯을 그리지 않는다. 슬롯에 아이템이 있을 때만 보인다.
 - 하단 알림 패널을 그리지 않는다. `DrawManager.drawItemHud`가 `drawNotice`를 더 이상 호출하지 않으며, `ItemFeedback`의 알림 내용(`getNotice`)은 로그와 테스트용으로 그대로 계산한다.
+- 드롭 확률 (2026-11-28): 처치당 드롭 15%→6%, 강화 아이템 가중치 1→1.8, 감소 0.7→0.55. `drop.upgradeDecay.shared=true`면 강화 아이템 가중치가 종류와 상관없이 지금까지 먹은 강화 아이템 총수만큼 줄어든다. 초반 한두 개는 쉽게 나오고 이후엔 드물다.
