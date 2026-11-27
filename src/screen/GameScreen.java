@@ -955,6 +955,13 @@ public class GameScreen extends Screen {
 	private void draw() {
 		drawManager.initDrawing(this);
 		drawManager.drawStarfield(this, this.starfield);
+		// Achievement popup right above the stars, so the ship, enemies and
+		// bullets draw over it instead of being hidden (Team Entities).
+		if (this.unlockedAchievement != null)
+			drawManager.drawAchievementUnlocked(this, this.unlockedAchievement,
+					System.currentTimeMillis() - this.achievementPopupStartedAt,
+					ACHIEVEMENT_POPUP_INTERVAL, ACHIEVEMENT_POPUP_SLIDE_IN,
+					ACHIEVEMENT_POPUP_SLIDE_OUT);
 
 		if (!this.paused) {
 			// Screen shake: move game world only. AUTHORED BY: VFX TEAM (Effection)
@@ -1086,13 +1093,6 @@ public class GameScreen extends Screen {
 			drawShrinkingEnemies();
 		if (this.showGameOverText)
 			drawGameOverSequence();
-
-		// Draw the notification after every gameplay and HUD element.
-		if (this.unlockedAchievement != null)
-			drawManager.drawAchievementUnlocked(this, this.unlockedAchievement,
-					System.currentTimeMillis() - this.achievementPopupStartedAt,
-					ACHIEVEMENT_POPUP_INTERVAL, ACHIEVEMENT_POPUP_SLIDE_IN,
-					ACHIEVEMENT_POPUP_SLIDE_OUT);
 
 		drawManager.completeDrawing(this);
 	}

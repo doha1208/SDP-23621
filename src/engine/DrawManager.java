@@ -1223,11 +1223,24 @@ public final class DrawManager {
 										final Achievement achievement, final long elapsedMilliseconds,
 										final int durationMilliseconds, final int slideInMilliseconds,
 										final int slideOutMilliseconds) {
-		int boxWidth = 218;
-		int boxHeight = 44;
+		// Compact box in the small font, below the item bar and boss health
+		// bar. The game screen draws it behind the ship, enemies and bullets
+		// (Team Entities).
+		final String title = "ACHIEVEMENT UNLOCKED";
+		final int pad = 4;
+		boolean bigIcon = achievement.getSpriteType() == SpriteType.FleetMaster;
+		boolean[][] icon = spriteMap.get(achievement.getSpriteType());
+		int iconScale = bigIcon ? 1 : 2;
+		int iconWidth = icon.length * iconScale;
+		int iconHeight = icon[0].length * iconScale;
+		int line = getSmallLineHeight();
+		int textWidth = Math.max(getSmallStringWidth(title),
+				getSmallStringWidth(achievement.getName()));
+		int boxWidth = pad + iconWidth + pad + textWidth + pad;
+		int boxHeight = Math.max(iconHeight, line * 2) + pad * 2;
 		int visibleX = screen.getWidth() - boxWidth - 6;
 		int hiddenX = screen.getWidth() + 2;
-		int boxY = 46;
+		int boxY = 80;
 		int boxX = visibleX;
 
 		if (elapsedMilliseconds < slideInMilliseconds)
@@ -1243,25 +1256,18 @@ public final class DrawManager {
 		backBufferGraphics.fillRect(boxX, boxY, boxWidth, boxHeight);
 		backBufferGraphics.setColor(Color.GREEN);
 		backBufferGraphics.drawRect(boxX, boxY, boxWidth, boxHeight);
-		backBufferGraphics.setColor(Color.GREEN);
-		backBufferGraphics.drawString("ACHIEVEMENT UNLOCKED", boxX + 34,
-				boxY + 16);
-		if (achievement.getSpriteType() == SpriteType.FleetMaster) {
-			drawSmallSprite(
-					achievement.getSpriteType(),
-					boxX + 8,
-					boxY + (boxHeight - 23) / 2,
+		int iconY = boxY + (boxHeight - iconHeight) / 2;
+		if (bigIcon)
+			drawSmallSprite(achievement.getSpriteType(), boxX + pad, iconY,
 					Color.WHITE);
-		} else {
-			drawSprite(
-					achievement.getSpriteType(),
-					boxX + 8,
-					boxY + 20,
+		else
+			drawSprite(achievement.getSpriteType(), boxX + pad, iconY,
 					achievement.getIconColor());
-		}
-		backBufferGraphics.setColor(Color.WHITE);
-		backBufferGraphics.drawString(achievement.getName(), boxX + 34,
-				boxY + 35);
+		int textX = boxX + pad + iconWidth + pad;
+		int textTop = boxY + (boxHeight - line * 2) / 2;
+		drawSmallString(title, textX, textTop + line - 3, Color.GREEN);
+		drawSmallString(achievement.getName(), textX, textTop + line * 2 - 3,
+				Color.WHITE);
 	}
 
 	/**
