@@ -35,6 +35,8 @@ final class ItemBalance {
     /** Bullet power (Team Entities): rapid fire share like rapidFire.bonus plus one pierce every pierceEvery stacks. */
     final double bulletPowerFireBonus, bulletPowerDropDecay;
     final int bulletPowerMaxStacks, bulletPowerPierceEvery;
+    /** Spread shot geometry (Team Entities): front gap px, diagonal and wide diagonal sideways px per frame. */
+    final int spreadFrontGap, spreadDiagonal, spreadWideDiagonal;
     /** true: an upgrade's drop decay counts the stacks of all upgrades together, not just its own (Team Entities). */
     final boolean sharedUpgradeDecay;
     /** Own per-kill chance for upgrades, rolled apart from basic items; null keeps one shared roll (Team Entities). */
@@ -104,8 +106,11 @@ final class ItemBalance {
         bulletSpeedBonus = positiveDouble(settings, "bulletSpeed.bonus", 1);
         bulletSpeedMaxStacks = positiveInt(settings, "bulletSpeed.maxStacks", 3);
         bulletSpeedDropDecay = probability(settings, "bulletSpeed.dropDecay", 0.7);
-        spreadMaxStacks = positiveInt(settings, "spread.maxStacks", 4);
+        spreadMaxStacks = positiveInt(settings, "spread.maxStacks", 6);
         spreadDropDecay = probability(settings, "spread.dropDecay", 0.7);
+        spreadFrontGap = positiveInt(settings, "spread.frontGap", 14);
+        spreadDiagonal = positiveInt(settings, "spread.diagonalSpeedX", 3);
+        spreadWideDiagonal = positiveInt(settings, "spread.wideDiagonalSpeedX", 6);
         pierceMaxStacks = positiveInt(settings, "pierce.maxStacks", 3);
         pierceDropDecay = probability(settings, "pierce.dropDecay", 0.7);
         bulletPowerFireBonus = positiveDouble(settings, "bulletPower.fireBonus", 0.35);

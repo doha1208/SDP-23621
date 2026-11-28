@@ -38,6 +38,11 @@ public class Bullet extends Entity {
 			.newSetFromMap(new IdentityHashMap<Object, Boolean>());
 	/** Whether registerHit counted a new enemy since the last piercesThrough. */
 	private boolean hitThisFrame;
+	/**
+	 * Fired by the player even when it flies down, like the spread item's
+	 * back shot (Team Entities). Upward bullets are always the player's.
+	 */
+	private boolean playerShot;
 
 	/**
 	 * Constructor, establishes the bullet's properties.
@@ -79,7 +84,7 @@ public class Bullet extends Entity {
 	 * Sets correct sprite for the bullet, based on speed.
 	 */
 	public final void setSprite() {
-		if (speed < 0)
+		if (speed < 0 || this.playerShot)
 			this.spriteType = SpriteType.Bullet;
 		else
 			this.spriteType = SpriteType.EnemyBullet;
@@ -197,5 +202,25 @@ public class Bullet extends Entity {
 		this.piercing = false;
 		this.hitTargets.clear();
 		this.hitThisFrame = false;
+		this.playerShot = false;
+	}
+
+	/**
+	 * Marks a bullet as the player's whatever its direction (Team Entities):
+	 * it hits enemies and never the player, and keeps the player's sprite.
+	 *
+	 * @param playerShot
+	 *            True for a player bullet.
+	 */
+	public final void setPlayerShot(final boolean playerShot) {
+		this.playerShot = playerShot;
+		setSprite();
+	}
+
+	/**
+	 * @return True for a player bullet: marked as one, or flying up.
+	 */
+	public final boolean isPlayerShot() {
+		return this.playerShot || this.speed < 0;
 	}
 }

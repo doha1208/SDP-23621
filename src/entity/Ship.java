@@ -1,7 +1,10 @@
 package entity;
 
 import java.awt.Color;
+import java.awt.Point;
+import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import engine.Cooldown;
 import engine.Core;
@@ -17,8 +20,6 @@ public class Ship extends Entity {
 
 	/** Half the distance in px between two neighbouring barrels. */
 	private static final int BARREL_OFFSET = 8;
-	/** Sideways speed added per step between spread lanes, in px per frame (Team CS). */
-	private static final int SPREAD_STEP = 1;
 
 	/**
 	 * Types of player ships. Each type has its own movement speed, shooting
@@ -180,8 +181,16 @@ public class Ship extends Entity {
 	private double itemBulletSpeedBonus;
 	/** Extra movement speed from items, added to the base speed (Team CS). */
 	private int itemMovementSpeedBonus;
-	/** Extra bullet lanes per shot from the spread item (Team CS). */
+	/** Spread item stacks, 0 to 6; see shoot (Team CS / Team Entities). */
 	private int itemSpreadCount;
+	/** Enemy centers for the spread item's aimed shot (Team Entities). */
+	private Supplier<List<Point>> aimTargets;
+	/** Spread item (Team Entities): px between side-by-side front shots. */
+	private int spreadFrontGap = 14;
+	/** Spread item: sideways px per frame of the first diagonal pair. */
+	private int spreadDiagonal = 3;
+	/** Spread item: sideways px per frame of the wide diagonal pair. */
+	private int spreadWideDiagonal = 6;
 	/** Extra enemies each bullet passes through, from the pierce item (Team CS). */
 	private int itemPierceCount;
 
@@ -269,9 +278,12 @@ public class Ship extends Entity {
 
 	/**
 	 * Shoots upwards: each of the type's barrels fires one bullet with the
-	 * type's bullet speed and size. With the spread item every lane of the fan
-	 * fires the ship's own shot, and the pierce item lets each bullet pass
-	 * through extra enemies (Team CS).
+	 * type's bullet speed and size, and the pierce item lets each bullet pass
+	 * through extra enemies (Team CS). Spread item stacks (Team Entities):
+	 * 1 two front shots side by side, 2 a diagonal pair, 3 three front
+	 * shots, 4 a shot backwards, 5 a shot aimed at the nearest enemy,
+	 * 6 a wider diagonal pair. Every barrel fires the front shots; the other
+	 * shots leave once from the center.
 	 *
 	 * @param bullets
 	 *            List of bullets on screen, to add the new bullet.
@@ -284,52 +296,105 @@ public class Ship extends Entity {
 			final int bulletSpeed = -(this.type.bulletSpeed
 					+ (int) Math.round(this.itemBulletSpeedBonus));
 			final int barrels = this.type.bulletsPerShot;
-			for (int lane : spreadLanes(1 + this.itemSpreadCount)) {
-				final int speedX = lane * SPREAD_STEP;
+			final int spread = this.itemSpreadCount;
+			final int columns = spread >= 3 ? 3 : spread >= 1 ? 2 : 1;
+			for (int column = 0; column < columns; column++) {
+				final int columnX = centerX
+						+ (2 * column - (columns - 1)) * this.spreadFrontGap / 2;
 				for (int barrel = 0; barrel < barrels; barrel++) {
 					// Barrels sit symmetrically around the center: one at
 					// the center, two at -8/+8, three at -16/0/+16, ...
-					final int x = centerX
+					final int x = columnX
 							+ (2 * barrel - (barrels - 1)) * BARREL_OFFSET;
-					addBullet(bullets, BulletPool.getCustomBullet(x,
-							positionY, bulletSpeed, this.type.bulletWidth,
-							this.type.bulletHeight), speedX);
+					addBullet(bullets, x, positionY, bulletSpeed, 0);
 				}
+			}
+			if (spread >= 2) {
+				addBullet(bullets, centerX, positionY, bulletSpeed, -this.spreadDiagonal);
+				addBullet(bullets, centerX, positionY, bulletSpeed, this.spreadDiagonal);
+			}
+			if (spread >= 4)
+				addBullet(bullets, centerX, positionY + this.height,
+						-bulletSpeed, 0);
+			if (spread >= 5)
+				addAimedBullet(bullets, centerX, bulletSpeed);
+			if (spread >= 6) {
+				addBullet(bullets, centerX, positionY, bulletSpeed,
+						-this.spreadWideDiagonal);
+				addBullet(bullets, centerX, positionY, bulletSpeed,
+						this.spreadWideDiagonal);
 			}
 			return true;
 		}
 		return false;
 	}
 
-	/** Gives a new bullet its lane and the pierce item's extra hits (Team CS). */
-	private void addBullet(final Set<Bullet> bullets, final Bullet bullet,
-						   final int speedX) {
+	/**
+	 * Fires one player bullet with the type's size, the pierce item's extra
+	 * hits and the ship's piercing (Team CS / Team Entities).
+	 */
+	private void addBullet(final Set<Bullet> bullets, final int x, final int y,
+						   final int speedY, final int speedX) {
+		final Bullet bullet = BulletPool.getCustomBullet(x, y, speedY,
+				this.type.bulletWidth, this.type.bulletHeight);
 		bullet.setSpeedX(speedX);
 		bullet.setPierce(this.itemPierceCount);
 		bullet.setPiercing(this.type.piercing);
+		bullet.setPlayerShot(true);
 		bullets.add(bullet);
 	}
 
 	/**
-	 * Sideways steps of each lane in a spread fan, symmetric around the
-	 * center (Team CS): 1 lane {0}, 2 {-1, 1}, 3 {-1, 0, 1}, 4 {-2, -1, 1, 2},
-	 * 5 {-2, -1, 0, 1, 2}.
-	 *
-	 * @param lanes
-	 *            Number of lanes, at least 1.
-	 * @return Step of each lane, from left to right.
+	 * Spread item stack 5 (Team Entities): one bullet at the bullet speed
+	 * towards the nearest enemy, or straight up when there is none.
 	 */
-	static int[] spreadLanes(final int lanes) {
-		final int count = Math.max(1, lanes);
-		final int[] steps = new int[count];
-		final int half = count / 2;
-		int i = 0;
-		for (int step = -half; step <= half; step++) {
-			if (step == 0 && count % 2 == 0)
-				continue;
-			steps[i++] = step;
+	private void addAimedBullet(final Set<Bullet> bullets, final int centerX,
+								final int bulletSpeed) {
+		final Point target = nearestTarget(centerX, positionY);
+		int speedX = 0;
+		int speedY = bulletSpeed;
+		if (target != null) {
+			final double dx = target.x - centerX;
+			final double dy = target.y - positionY;
+			final double length = Math.hypot(dx, dy);
+			if (length > 0) {
+				final double speed = Math.abs(bulletSpeed);
+				speedX = (int) Math.round(dx / length * speed);
+				speedY = (int) Math.round(dy / length * speed);
+				if (speedX == 0 && speedY == 0)
+					speedY = bulletSpeed;
+			}
 		}
-		return steps;
+		addBullet(bullets, centerX, positionY, speedY, speedX);
+	}
+
+	/** Nearest of the aim targets to the given point, or null. */
+	private Point nearestTarget(final int x, final int y) {
+		if (this.aimTargets == null)
+			return null;
+		final List<Point> targets = this.aimTargets.get();
+		Point nearest = null;
+		double best = Double.MAX_VALUE;
+		if (targets != null)
+			for (Point target : targets) {
+				final double distance = target.distanceSq(x, y);
+				if (distance < best) {
+					best = distance;
+					nearest = target;
+				}
+			}
+		return nearest;
+	}
+
+	/**
+	 * Where the spread item's aimed shot can go (Team Entities): centers of
+	 * the enemies that can be hit right now. Null means no aimed target.
+	 *
+	 * @param aimTargets
+	 *            Supplier of enemy centers, read at each shot.
+	 */
+	public final void setAimTargets(final Supplier<List<Point>> aimTargets) {
+		this.aimTargets = aimTargets;
 	}
 
 	/**
@@ -345,6 +410,24 @@ public class Ship extends Entity {
 									final int pierceCount) {
 		this.itemSpreadCount = Math.max(0, spreadCount);
 		this.itemPierceCount = Math.max(0, pierceCount);
+	}
+
+	/**
+	 * Sets the spread item's shot geometry (Team Entities), from the item
+	 * balance file.
+	 *
+	 * @param frontGap
+	 *            Px between side-by-side front shots.
+	 * @param diagonal
+	 *            Sideways px per frame of the first diagonal pair.
+	 * @param wideDiagonal
+	 *            Sideways px per frame of the wide diagonal pair.
+	 */
+	public final void setSpreadPattern(final int frontGap, final int diagonal,
+									   final int wideDiagonal) {
+		this.spreadFrontGap = Math.max(0, frontGap);
+		this.spreadDiagonal = Math.max(0, diagonal);
+		this.spreadWideDiagonal = Math.max(0, wideDiagonal);
 	}
 
 	/**

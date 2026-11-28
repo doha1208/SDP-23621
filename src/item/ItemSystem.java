@@ -268,7 +268,11 @@ public final class ItemSystem {
 
     private void update(Entity ship, boolean shipAvailable, boolean gather) {
         // Spread/pierce reach the ship here, so the shared GameScreen needs no extra call.
-        if (ship instanceof Ship) ((Ship) ship).setWeaponMods(spreadCount(), pierceCount());
+        if (ship instanceof Ship) {
+            ((Ship) ship).setWeaponMods(spreadCount(), pierceCount());
+            ((Ship) ship).setSpreadPattern(balance.spreadFrontGap, balance.spreadDiagonal,
+                balance.spreadWideDiagonal); // Team Entities
+        }
         if (!isLevelActive()) return;
         long now = System.nanoTime(), delta = 0;
         if (lastUpdateNanos < 0) lastUpdateNanos = now;

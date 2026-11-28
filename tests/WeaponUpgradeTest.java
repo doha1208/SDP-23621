@@ -126,27 +126,63 @@ public final class WeaponUpgradeTest {
         standard.setItemBonuses(0, items.bulletSpeedBonus());
         check(shootOnce(standard).iterator().next().getSpeed() == -9, "Bullet flies at 9 px/frame");
 
-        // Spread: one more lane per stack, symmetric fan.
+        // Spread (Team Entities): 1 two front shots, 2 diagonal pair, 3 three front shots,
+        // 4 back shot, 5 aimed shot, 6 wider diagonal pair. Left and right stay symmetric.
         Ship fan = new Ship(200, 500, Ship.ShipType.STANDARD);
         items = newRun(fan);
         check(shootOnce(fan).size() == 1, "No spread: one bullet");
-        int[][] expected = {{-1, 1}, {-1, 0, 1}, {-2, -1, 1, 2}, {-2, -1, 0, 1, 2}};
-        for (int stacks = 1; stacks <= 4; stacks++) {
+        int[] fronts = {2, 2, 3, 3, 3, 3};
+        int[] totals = {2, 4, 5, 6, 7, 9};
+        // Nearest enemy up and to the right: the aimed shot goes there.
+        List<java.awt.Point> targets = java.util.Arrays.asList(
+            new java.awt.Point(400, 100), new java.awt.Point(313, 300));
+        for (int stacks = 1; stacks <= 6; stacks++) {
             check(pickUp(items, "spread", 1) == 1, "Spread stack " + stacks);
             Ship ship = new Ship(200, 500, Ship.ShipType.STANDARD);
+            ship.setAimTargets(() -> targets);
             items.update(ship, true);
             Set<Bullet> shot = shootOnce(ship);
-            check(shot.size() == stacks + 1, "Spread " + stacks + " fires " + (stacks + 1) + " lanes");
-            int[] sideways = new int[shot.size()];
-            int i = 0;
-            for (Bullet bullet : shot) sideways[i++] = bullet.getSpeedX();
-            java.util.Arrays.sort(sideways);
-            check(java.util.Arrays.equals(sideways, expected[stacks - 1]), "Fan lanes for " + stacks);
+            int centerX = ship.getPositionX() + ship.getWidth() / 2;
+            int front = 0, back = 0, aimed = 0, sideSum = 0;
+            List<Integer> frontX = new java.util.ArrayList<Integer>();
+            List<Integer> diagonals = new java.util.ArrayList<Integer>();
+            for (Bullet bullet : shot) {
+                check(bullet.isPlayerShot(), "Spread bullets are the player's");
+                if (bullet.getSpeed() > 0) { back++; continue; }
+                if (bullet.getSpeedX() == 0) {
+                    front++;
+                    frontX.add(bullet.getPositionX() + bullet.getWidth() / 2 - centerX);
+                } else if (bullet.getSpeed() != -6) {
+                    // Aimed at (313, 300) from the ship's top center: right and up.
+                    double want = Math.atan2(300 - ship.getPositionY(), 313 - centerX);
+                    double got = Math.atan2(bullet.getSpeed(), bullet.getSpeedX());
+                    check(Math.abs(want - got) < 0.2, "Aimed shot heads for the nearest enemy");
+                    aimed++;
+                } else {
+                    diagonals.add(bullet.getSpeedX());
+                    sideSum += bullet.getSpeedX();
+                }
+            }
+            check(shot.size() == totals[stacks - 1], "Spread " + stacks + " fires " + totals[stacks - 1]);
+            check(front == fronts[stacks - 1], "Front shots at spread " + stacks);
+            int frontSum = 0;
+            for (int x : frontX) frontSum += x;
+            check(frontSum == 0, "Front shots centered at spread " + stacks);
+            check(sideSum == 0, "Diagonals symmetric at spread " + stacks);
+            check(diagonals.size() == (stacks >= 6 ? 4 : stacks >= 2 ? 2 : 0), "Diagonals at spread " + stacks);
+            check(back == (stacks >= 4 ? 1 : 0), "Back shot at spread " + stacks);
+            check(aimed == (stacks >= 5 ? 1 : 0), "Aimed shot at spread " + stacks);
         }
-        check(pickUp(items, "spread", 1) == 0, "Spread stops at four stacks");
+        check(pickUp(items, "spread", 1) == 0, "Spread stops at six stacks");
+        Ship lonely = new Ship(200, 500, Ship.ShipType.STANDARD);
+        items.update(lonely, true);
+        int straightUp = 0;
+        for (Bullet bullet : shootOnce(lonely))
+            if (bullet.getSpeedX() == 0 && bullet.getSpeed() < 0) straightUp++;
+        check(straightUp == 4, "No enemy: the aimed shot goes straight up");
         Ship twoWay = new Ship(200, 500, Ship.ShipType.TWO_WAY);
         items.update(twoWay, true);
-        check(shootOnce(twoWay).size() == 10, "Two-way fires both barrels on every lane");
+        check(shootOnce(twoWay).size() == 12, "Two-way fires both barrels on every front shot");
 
         // Pierce: bullet state.
         Bullet bullet = BulletPool.getBullet(0, 0, -6);
@@ -190,6 +226,22 @@ public final class WeaponUpgradeTest {
         Field inputDelay = Screen.class.getDeclaredField("inputDelay");
         inputDelay.setAccessible(true);
         inputDelay.set(screen, Core.getCooldown(0));
+
+        // The spread back shot flies down through the ship without hurting it (Team Entities).
+        Ship player = (Ship) get(screen, "ship");
+        Bullet backShot = BulletPool.getBullet(player.getPositionX() + 4, player.getPositionY(), 6);
+        backShot.setPlayerShot(true);
+        bullets(screen).add(backShot);
+        int livesBefore = (Integer) get(screen, "lives");
+        call(screen, "manageCollisions");
+        check((Integer) get(screen, "lives") == livesBefore, "Back shot does not hit the player");
+        bullets(screen).remove(backShot);
+        Bullet enemyShot = BulletPool.getBullet(player.getPositionX() + 4, player.getPositionY(), 6);
+        check(!enemyShot.isPlayerShot(), "Unmarked downward bullet is an enemy bullet");
+        bullets(screen).add(enemyShot);
+        call(screen, "manageCollisions");
+        check((Integer) get(screen, "lives") == livesBefore - 1, "Enemy bullet still hits the player");
+        bullets(screen).clear();
 
         // A 1-pierce bullet goes through one enemy of a column and stops at the next.
         EnemyManager manager = waveManager(screen, 15);

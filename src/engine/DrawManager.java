@@ -365,7 +365,7 @@ public final class DrawManager {
 				AlphaComposite.SRC_OVER, alpha));
 
 		// If the entity is a Bullet fired by the PLAYER (speed < 0), stretch its sprite to match its actual dimensions.
-		if (entity instanceof entity.Bullet && ((entity.Bullet) entity).getSpeed() < 0) {
+		if (entity instanceof entity.Bullet && ((entity.Bullet) entity).isPlayerShot()) {
 			boolean[][] image = spriteMap.get(entity.getSpriteType());
 			if (image != null && image.length > 0) {
 				// Calculate how much to stretch each pixel of the sprite

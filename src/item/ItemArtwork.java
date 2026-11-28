@@ -130,7 +130,7 @@ public final class ItemArtwork {
             case SCORE_BOOST: return "Score x" + number(item.magnitude) + " / " + time;
             case RAPID_FIRE: return "Faster fire / " + stack(item, effect);
             case BULLET_SPEED: return "Faster bullets / " + stack(item, effect);
-            case SPREAD: return "More bullet lanes / " + stack(item, effect);
+            case SPREAD: return "More shot directions / " + stack(item, effect);
             case PIERCE: return "Pass through more enemies / " + stack(item, effect);
             case BULLET_POWER: return "Faster fire + pierce / " + stack(item, effect);
             default: return item.description;

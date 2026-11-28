@@ -412,6 +412,7 @@ public class GameScreen extends Screen {
 		// Initialize the player in both boss and normal stages.
 		this.ship = new Ship(this.width / 2, this.height - SHIP_BOTTOM_GAP,
 				Core.getSelectedShipType());
+		this.ship.setAimTargets(this::aliveEnemyCenters); // spread aimed shot (Team Entities)
 		this.dash = new ShipDash(); // Team CS
 		this.dashEffect = new engine.DashVisualEffect();
 		// Never above the line under the score bar, never below the start row.
@@ -1172,7 +1173,7 @@ public class GameScreen extends Screen {
 			return;
 		Set<Bullet> recyclable = new HashSet<Bullet>();
 		for (Bullet bullet : this.bullets) {
-			if (bullet.getSpeed() > 0) {
+			if (!bullet.isPlayerShot()) { // spread back shot flies down (Team Entities)
 				// A dashing or blinking ship dodges: the bullet flies on (Team CS).
 				if (checkCollision(bullet, this.ship) && !this.levelFinished
 						&& !this.dash.isDashing() && !this.ship.isInvincible()) {

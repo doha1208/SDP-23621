@@ -94,8 +94,8 @@ class ItemDefinitions {
         ItemInfo spread = new ItemInfo(
             "spread",
             "Spread Shot",
-            "Each shot fires one more bullet in a fan for the rest of the run. Stacks up to "
-                + balance.spreadMaxStacks + " times.",
+            "Each stack adds shots for the rest of the run: side by side, diagonal, a third front shot,"
+                + " backwards, aimed, then wider diagonals. Stacks up to " + balance.spreadMaxStacks + " times.",
             "spread",
             ActivationMode.ON_PICKUP,
             EffectKind.SPREAD,
