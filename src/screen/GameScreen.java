@@ -16,6 +16,7 @@ import java.util.Set;
 import engine.soundEngine.Sound;
 import engine.soundEngine.SoundManager;
 import engine.CoinDropManager;
+import engine.ControlKeys;
 import engine.Cooldown;
 import engine.Core;
 import engine.DrawManager;
@@ -64,12 +65,14 @@ import item.ItemAPI.ItemEvent;
  */
 public class GameScreen extends Screen {
 
-	/** Milliseconds until the screen accepts user input. */
-	private static final int INPUT_DELAY = 6000;
+	/** Milliseconds until the screen accepts user input: a short START banner (Team Entities, was a 6 s countdown). */
+	private static final int INPUT_DELAY = 900;
 	/** Bonus score for each life remaining at the end of the level. */
 	private static final int LIFE_SCORE = 100;
 	/** Time from finishing the level to screen change. */
 	private static final int SCREEN_CHANGE_INTERVAL = 1500;
+	/** Longest wait for leftover item drops to reach the ship after a clear (Team Entities). */
+	private static final int MAX_GATHER_MILLIS = 4000;
 	// Game over animation timings. AUTHORED BY: VFX TEAM (Effection)
 	/** Pause after the player ship explodes, before enemies disappear. */
 	private static final int GAME_OVER_PAUSE = 500;
@@ -103,6 +106,13 @@ public class GameScreen extends Screen {
 	private static final int ACHIEVEMENT_POPUP_SLIDE_OUT = 350;
 	/** Height of the interface separation line. */
 	private static final int SEPARATION_LINE_HEIGHT = 40;
+	/** Height of the solid band behind the score bar; the item bar starts below it. */
+	private static final int HUD_BAND_HEIGHT = 42;
+	/**
+	 * Screen shake for an enemy kill, as a share of the full shake (5 px).
+	 * Rams, boss parts and the warp-in still shake at full power.
+	 */
+	private static final float KILL_SHAKE_SHARE = 0.4f;
 	/** Gap between the ship's starting row and the bottom of the screen. */
 	private static final int SHIP_BOTTOM_GAP = 30;
 	/** Lives at or below this value start the glitch. */
@@ -171,6 +181,8 @@ public class GameScreen extends Screen {
 	private int level;
 	/** Highest y the top of the ship may reach, from res/ship.properties. */
 	private int shipTopY;
+	/** Frames the ship blinks and cannot be hit after losing a life, from res/ship.properties. */
+	private int shipInvincibleFrames;
 	/** Enemies and enemy bullets of this level (Team Entities enemy overhaul). */
 	private EnemyManager enemyManager;
 	/** Decides when enemies spawn; normal stages only. */
@@ -231,6 +243,8 @@ public class GameScreen extends Screen {
 	private long gameStartTime;
 	/** Checks if the level is finished. */
 	private boolean levelFinished;
+	/** When the level finished, to cap the wait for gathered drops (Team Entities). */
+	private long levelFinishedAt;
 	/** Sparkles from destroyed ships. AUTHORED BY: VFX TEAM (Effection) */
 	private List<Particle> particles = new ArrayList<Particle>();
 	/** Colors the sparkles can have. AUTHORED BY: VFX TEAM (Effection) */
@@ -276,7 +290,7 @@ public class GameScreen extends Screen {
 	private List<long[]> scoreBoostPopups;
 	/** Item system of this run (Team CS). Kept across levels by ItemSystem. */
 	private ItemSystem items;
-	/** Item slot keys (1-9) held last frame, so holding a key uses it once. */
+	/** Item slot keys (Z, X, C, ...) held last frame, so holding a key uses it once. */
 	private boolean[] itemSlotKeysHeld = new boolean[9];
 	/** Dash dodge of the ship (Team CS). */
 	private ShipDash dash;
@@ -398,12 +412,15 @@ public class GameScreen extends Screen {
 		// Initialize the player in both boss and normal stages.
 		this.ship = new Ship(this.width / 2, this.height - SHIP_BOTTOM_GAP,
 				Core.getSelectedShipType());
+		this.ship.setAimTargets(this::aliveEnemyCenters); // spread aimed shot (Team Entities)
 		this.dash = new ShipDash(); // Team CS
 		this.dashEffect = new engine.DashVisualEffect();
 		// Never above the line under the score bar, never below the start row.
 		this.shipTopY = Math.max(SEPARATION_LINE_HEIGHT,
 				Math.min(this.height - SHIP_BOTTOM_GAP,
 						(int) (this.height * ShipConfig.topLimit())));
+		this.shipInvincibleFrames = (int) Math.round(
+				ShipConfig.invincibleSeconds() * this.fps);
 
 		// Distinct mid-boss and final boss encounters.
 		this.enemyManager = new EnemyManager(this.width, this.height,
@@ -579,10 +596,10 @@ public class GameScreen extends Screen {
 					moveShipVertically();
 				if (inputManager.isKeyDown(KeyEvent.VK_SPACE)) {
 					// Count bullets, not trigger pulls: Two Way fires two at
-					// once, and accuracy is kills per bullet.
-					int bulletsBefore = this.bullets.size();
+					// once, and accuracy is kills per bullet. The spread back
+					// shot is left out; it almost never hits (Team Entities).
 					if (this.ship.shoot(this.bullets))
-						this.bulletsShot += this.bullets.size() - bulletsBefore;
+						this.bulletsShot += this.ship.getLastForwardShots();
 				}
 				useItemSlots(); // Item System (Team CS)
 			}
@@ -592,9 +609,13 @@ public class GameScreen extends Screen {
 			if (this.boss != null)
 				this.boss.update(this.enemyManager, playerCenterX(),
 						playerCenterY(), this.items.enemiesFrozen());
-			else
+			else {
 				this.levelDirector.update(this.enemyManager, playerCenterX(),
 						playerCenterY());
+				// Upgrade catch-up (Team Entities); none in the timed run.
+				if (!this.timedRunMode)
+					this.items.setStageProgress(this.levelDirector.getProgress());
+			}
 			// Boss stages use it too, for boss bullets and summoned enemies.
 			this.enemyManager.updateEnemies(this.items.enemiesFrozen(),
 					playerCenterX(), playerCenterY());
@@ -607,6 +628,8 @@ public class GameScreen extends Screen {
 		// Item System (Team CS): drops fall/expire, pickups, effect timers.
 		if (this.inputDelay.checkFinished() && !this.levelFinished && this.lives > 0)
 			this.items.update(this.ship, !this.ship.isDestroyed());
+		else if (this.levelFinished && this.lives > 0 && !this.gameOverActive && !didQuit())
+			this.items.gatherDrops(this.ship); // Team Entities: leftover drops fly to the ship on a clear.
 		else
 			this.items.pauseClock();
 		manageCollisions();
@@ -638,6 +661,7 @@ public class GameScreen extends Screen {
 		if ((isCleared || this.lives == 0)
 				&& !this.levelFinished) {
 			this.levelFinished = true;
+			this.levelFinishedAt = System.currentTimeMillis();
 			this.screenFinishedCooldown.reset();
 			this.enemyManager.clearBullets();
 			BulletPool.recycle(this.bullets);
@@ -674,6 +698,8 @@ public class GameScreen extends Screen {
 		}
 
 		if (this.levelFinished && this.screenFinishedCooldown.checkFinished()
+				&& (!this.items.hasDrops()
+						|| System.currentTimeMillis() - this.levelFinishedAt > MAX_GATHER_MILLIS)
 				&& this.unlockedAchievement == null
 				&& this.achievementPopupQueue.isEmpty())
 			this.isRunning = false;
@@ -927,7 +953,8 @@ public class GameScreen extends Screen {
 	 * level began, and every on-screen element is rebuilt from scratch.
 	 */
 	private void restartLevel() {
-		this.items.endLevel();
+		// Upgrades caught in the abandoned try are taken back (Team Entities).
+		this.items.endLevelForRestart();
 		GameEvents.unsubscribe(GameEvents.Type.PLAYER_HIT, this.damageDim);
 		GameEvents.unsubscribe(GameEvents.Type.PLAYER_HIT, this.lightningChain);
 		BulletPool.recycle(this.bullets);
@@ -952,6 +979,13 @@ public class GameScreen extends Screen {
 	private void draw() {
 		drawManager.initDrawing(this);
 		drawManager.drawStarfield(this, this.starfield);
+		// Achievement popup right above the stars, so the ship, enemies and
+		// bullets draw over it instead of being hidden (Team Entities).
+		if (this.unlockedAchievement != null)
+			drawManager.drawAchievementUnlocked(this, this.unlockedAchievement,
+					System.currentTimeMillis() - this.achievementPopupStartedAt,
+					ACHIEVEMENT_POPUP_INTERVAL, ACHIEVEMENT_POPUP_SLIDE_IN,
+					ACHIEVEMENT_POPUP_SLIDE_OUT);
 
 		if (!this.paused) {
 			// Screen shake: move game world only. AUTHORED BY: VFX TEAM (Effection)
@@ -975,7 +1009,8 @@ public class GameScreen extends Screen {
 						engine.GhostTrail.isBoosting(this.items));
 			if (!warping)
 				drawDashTrail(); // Team CS
-			if (!warping)
+			// The ship blinks while it cannot be hit after losing a life.
+			if (!warping && !this.ship.isBlinkHidden())
 				drawManager.drawEntity(this.ship, this.ship.getPositionX(),
 						this.ship.getPositionY());
 			if (!warping)
@@ -999,7 +1034,8 @@ public class GameScreen extends Screen {
 			drawManager.drawItemDrops(this.items); // Item System (Team CS)
 			for (Bullet bullet : this.bullets) {
 				// Comet trail, player bullets only. AUTHORED BY: VFX TEAM (Effection)
-				if (this.cometTrailOn && bullet.getSpeed() < 0)
+				// isPlayerShot: spread back and aimed shots too (Team Entities).
+				if (this.cometTrailOn && bullet.isPlayerShot())
 					drawManager.drawBulletTrail(bullet);
 				drawManager.drawEntity(bullet, bullet.getPositionX(),
 						bullet.getPositionY());
@@ -1023,7 +1059,10 @@ public class GameScreen extends Screen {
 		// Points popups (above the dim, under the HUD). AUTHORED BY: VFX TEAM (Effection)
 		drawManager.drawPointsEffect(this, this.pointsEffect);
 
-		// Interface.
+		// Interface. A solid band behind the score bar, down to where the
+		// item bar starts (y=42), so enemies entering from the top and the
+		// stars do not show through it (Team Entities).
+		drawManager.fillBox(0, 0, this.width, HUD_BAND_HEIGHT, Color.BLACK);
 		drawManager.drawScore(this, this.score);
 		drawManager.drawLives(this, this.lives);
 		if (this.timedRun != null)
@@ -1057,20 +1096,18 @@ public class GameScreen extends Screen {
 					"w+s / arrows to move, space to select, P to resume");
 		}
 
-		// Countdown to game start (skipped while paused, so the pause menu
-		// stays visible instead of being painted over).
+		// Short START banner before play (skipped while paused, so the pause
+		// menu stays visible instead of being painted over). Team Entities:
+		// replaces the old level name + 3-2-1 countdown.
 		if (!this.paused && !this.inputDelay.checkFinished()) {
-			int countdown = (int) ((INPUT_DELAY
-					- (System.currentTimeMillis()
-					- this.gameStartTime)) / 1000);
-			drawManager.drawCountDown(this, this.level, countdown,
-					this.bonusLife);
+			drawManager.drawStartBanner(this, this.level, this.bonusLife);
 			drawManager.drawHorizontalLine(this, this.height / 2 - this.height
 					/ 12);
 			drawManager.drawHorizontalLine(this, this.height / 2 + this.height
 					/ 12);
 			drawManager.drawItemHint(this, this.items); // Item System (Team CS)
-			drawManager.drawKeyHints(this, "P to pause, Shift to dash");
+			drawManager.drawKeyHints(this, "P to pause, "
+					+ ControlKeys.DASH_LABEL + " to dash");
 		}
 
 
@@ -1079,13 +1116,6 @@ public class GameScreen extends Screen {
 			drawShrinkingEnemies();
 		if (this.showGameOverText)
 			drawGameOverSequence();
-
-		// Draw the notification after every gameplay and HUD element.
-		if (this.unlockedAchievement != null)
-			drawManager.drawAchievementUnlocked(this, this.unlockedAchievement,
-					System.currentTimeMillis() - this.achievementPopupStartedAt,
-					ACHIEVEMENT_POPUP_INTERVAL, ACHIEVEMENT_POPUP_SLIDE_IN,
-					ACHIEVEMENT_POPUP_SLIDE_OUT);
 
 		drawManager.completeDrawing(this);
 	}
@@ -1149,10 +1179,10 @@ public class GameScreen extends Screen {
 			return;
 		Set<Bullet> recyclable = new HashSet<Bullet>();
 		for (Bullet bullet : this.bullets) {
-			if (bullet.getSpeed() > 0) {
-				// A dashing ship dodges: the bullet flies on (Team CS).
+			if (!bullet.isPlayerShot()) { // spread back shot flies down (Team Entities)
+				// A dashing or blinking ship dodges: the bullet flies on (Team CS).
 				if (checkCollision(bullet, this.ship) && !this.levelFinished
-						&& !this.dash.isDashing()) {
+						&& !this.dash.isDashing() && !this.ship.isInvincible()) {
 					recyclable.add(bullet);
 					hitPlayer();
 				}
@@ -1185,7 +1215,8 @@ public class GameScreen extends Screen {
 										enemy.getPositionX() + enemy.getWidth() / 2,
 										enemy.getPositionY() + enemy.getHeight() / 2,
 										aliveEnemyCenters());
-							this.screenShake.trigger();
+							// Light shake: kills come often now (Team Entities).
+							this.screenShake.trigger(KILL_SHAKE_SHARE);
 							this.pointsEffect.spawn(
 									enemy.getPositionX() + enemy.getWidth() / 2,
 									enemy.getPositionY() + enemy.getHeight() / 2,
@@ -1251,7 +1282,10 @@ public class GameScreen extends Screen {
 	 * dodges all of it: bullets fly on and enemies pass by (Team CS).
 	 */
 	private void manageEnemyCollisions() {
-		if (this.levelFinished || this.dash.isDashing())
+		// A dashing ship, or one still blinking from a hit, lets bullets and
+		// enemies pass through (Team CS dash, Team Entities blink).
+		if (this.levelFinished || this.dash.isDashing()
+				|| this.ship.isInvincible())
 			return;
 		Iterator<EnemyBullet> enemyBullets = this.enemyManager.getBullets()
 				.iterator();
@@ -1280,15 +1314,20 @@ public class GameScreen extends Screen {
 
 	/**
 	 * The player is hit by a bullet or an enemy: loses a life unless the
-	 * ship is already exploding or a shield blocks it.
+	 * ship is still blinking from the last hit or a shield blocks it. The
+	 * ship then blinks for a while and cannot be hit, but keeps moving and
+	 * shooting; only the last life makes it explode (Team Entities).
 	 */
 	private void hitPlayer() {
 		if (this.levelFinished || this.lives <= 0)
 			return;
-		if (!this.ship.isDestroyed()
+		if (!this.ship.isDestroyed() && !this.ship.isInvincible()
 				&& !this.items.tryBlockHit()) { // Shield item (Team CS)
-			this.ship.destroy();
 			this.lives--;
+			if (this.lives > 0)
+				this.ship.startInvincibility(this.shipInvincibleFrames);
+			else
+				this.ship.destroy();
 			PlayerSounds.playHit(this.lives); // <-- Ajout du son
 			this.tookDamage = true; // Survivor tiers (Mantis)
 			GameEvents.emit(GameEvents.Type.PLAYER_HIT, this.lives); // AUTHORED BY: VFX TEAM (Effection)
@@ -1416,7 +1455,7 @@ public class GameScreen extends Screen {
 	}
 
 	/**
-	 * Dash dodge (Team CS): Shift dashes the way the ship last moved. While
+	 * Dash dodge (Team CS): Ctrl dashes the way the ship last moved. While
 	 * the dash lasts it moves the ship instead of the arrow keys, and stops
 	 * at the screen sides.
 	 *
@@ -1429,7 +1468,7 @@ public class GameScreen extends Screen {
 	private boolean updateDash(final boolean moveLeft,
 			final boolean moveRight) {
 		this.dash.face((moveRight ? 1 : 0) - (moveLeft ? 1 : 0));
-		boolean dashKey = inputManager.isKeyDown(KeyEvent.VK_SHIFT);
+		boolean dashKey = inputManager.isKeyDown(ControlKeys.DASH);
 		if (dashKey && !this.dashKeyHeld)
 			this.dash.start();
 		this.dashKeyHeld = dashKey;
@@ -1488,14 +1527,16 @@ public class GameScreen extends Screen {
 	}
 
 	/**
-	 * Uses an item slot when its number key is pressed (Team CS). Key 1 is
-	 * the first slot; holding a key uses the slot only once.
+	 * Uses an item slot when its key is pressed (Team CS). Z is the first
+	 * slot, then X and C (see engine.ControlKeys); holding a key uses the
+	 * slot only once.
 	 */
 	private void useItemSlots() {
-		int slots = Math.min(this.itemSlotKeysHeld.length,
+		int slots = Math.min(Math.min(this.itemSlotKeysHeld.length,
+				ControlKeys.itemSlotCount()),
 				this.items.api().getView().slots.size());
 		for (int slot = 0; slot < slots; slot++) {
-			boolean down = inputManager.isKeyDown(KeyEvent.VK_1 + slot);
+			boolean down = inputManager.isKeyDown(ControlKeys.itemSlotKey(slot));
 			if (down && !this.itemSlotKeysHeld[slot])
 				this.items.useSlot(slot);
 			this.itemSlotKeysHeld[slot] = down;

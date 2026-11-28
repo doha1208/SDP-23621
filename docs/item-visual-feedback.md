@@ -58,3 +58,21 @@ Java 17 대상 전체 소스·테스트 컴파일이 경고 없이 성공했고,
 ![동시 활성 효과와 아이템 HUD](images/item-feedback/game-all-item-states.png)
 
 ![중복 사용 거절 안내](images/item-feedback/game-item-rejected.png)
+
+## Team Entities 변경 (2026-11-27)
+
+- 획득 즉시 발동: Shield·Freeze·Boost·Score Boost는 잡는 순간 효과가 시작되고 슬롯에 들어가지 않는다. 같은 효과가 이미 켜져 있으면 시간을 처음부터 다시 센다(Freeze 포함, 위의 "Freeze 재사용 거절" 정책을 바꿈). `res/item-balance.properties`의 `pickup.autoUse=false`로 이전 방식(슬롯 + Z/X/C)을 되돌릴 수 있다. 직접 지급(`tryGrant`)은 지금도 슬롯에 넣는다.
+- HUD는 빈 슬롯을 그리지 않는다. 슬롯에 아이템이 있을 때만 보인다.
+- 하단 알림 패널을 그리지 않는다. `DrawManager.drawItemHud`가 `drawNotice`를 더 이상 호출하지 않으며, `ItemFeedback`의 알림 내용(`getNotice`)은 로그와 테스트용으로 그대로 계산한다.
+- 드롭 확률 (2026-11-28): 처치당 드롭 15%→6%, 강화 아이템 가중치 1→1.8, 감소 0.7→0.55. `drop.upgradeDecay.shared=true`면 강화 아이템 가중치가 종류와 상관없이 지금까지 먹은 강화 아이템 총수만큼 줄어든다. 초반 한두 개는 쉽게 나오고 이후엔 드물다.
+- 드롭 확률 분리 (2026-11-28): `drop.upgrade.probability`가 있으면 일반 적 처치 시 두 번 굴린다. 일반 아이템은 `drop.regular.probability`(6%), 강화 아이템은 `drop.upgrade.probability`(3.5%)에 감소율(0.65, 먹은 강화 총수 기준)을 곱한 확률. 한 번에 두 개가 나올 수도 있다.
+- 총알 강화 (2026-11-28): 강화 아이템은 확산과 총알 강화(`bullet_power`, `EffectKind.BULLET_POWER`) 두 종류만 떨어진다. 총알 강화는 최대 6중첩이며 매 중첩 연사가 오르고(`bulletPower.fireBonus`, 연사와 같은 log2 곡선: +35/55/70/81/90/98%), `bulletPower.pierceEvery`(2)중첩마다 관통이 1 늘어난다(2·4·6중첩에서 관통 1·2·3). 연사·탄속·관통은 드롭 가중치 0으로 꺼 두었고 정의와 효과 코드는 남아 있다(직접 지급·기존 테스트용). 효과가 같은 종류면 연사 비율과 관통 수는 더해진다.
+- 확산 6단계 (2026-11-28): 1 정면 2발 나란히, 2 대각선 한 쌍, 3 정면 3발, 4 뒤로 1발, 5 가장 가까운 적 조준 1발, 6 더 넓은 대각선 한 쌍. 좌우 대칭이며 정면 줄만 기체 포신 수만큼 나간다. 간격·각도는 `spread.frontGap`, `spread.diagonalSpeedX`, `spread.wideDiagonalSpeedX`(item-balance). 뒤로 가는 총알은 `Bullet.setPlayerShot(true)`로 플레이어 총알로 표시되고, `GameScreen.manageCollisions`는 속도 부호 대신 `isPlayerShot()`으로 적 총알을 가른다.
+- 첫 강화 확률 (2026-11-28): `drop.upgrade.probability` 3.5%→6%, 확산·총알 강화 감소율 0.65→0.55. 첫 강화가 평균 약 29킬→17킬 만에 나오고, 이후는 더 빨리 줄어 한 판 총량(약 5개)은 그대로.
+- 강화 아이템 보정 (2026-11-28): 기본 확률 4%(×0.55). 스테이지별 최소 보유 수(`drop.upgrade.floor.stageN`: 1,2,2,3,3,4,4,5)보다 적은 채로 스테이지 시간 50%가 지나면 처치당 10%+2%씩, 85%부터는 매 처치 확정. 진행률은 `LevelDirector.getProgress()`(RandomDirector: 활동 프레임 ÷ 스테이지 길이)를 `GameScreen`이 `ItemSystem.setStageProgress`로 넘긴다. 보스 스테이지·타임 런은 보정 없음.
+- 정리 (2026-11-28): 드롭되지 않던 연사·탄속·관통(`rapid_fire`/`bullet_speed`/`pierce`, `EffectKind.RAPID_FIRE`/`BULLET_SPEED`/`PIERCE`)과 그 밸런스 키를 지웠다. 한 판 내내 중첩되는 강화는 `EffectKind.isRunUpgrade()` 한 곳에서만 정한다(정의 검증, 효과 검증, NEXT_LEVEL, 드롭 판정이 모두 이것을 쓴다). `Modifiers.bulletSpeedBonus`는 공개 API라 남겨 두었고 지금은 항상 0이다. `Sound.ITEM_BULLET_SPEED`는 사운드 쪽 자산이라 남겨 두었다.
+- 보정 누적 방지 (2026-11-28): 보정 판정은 보유 강화 수에 아직 필드에서 튀고 있는 강화 드롭 수를 더해 센다. 예전에는 85% 이후 처치마다 강화가 또 떨어져 클리어 때 한꺼번에 빨려 들어왔다(1스테이지 상위 2%가 5개). 이제는 상위 2%가 3개이고 최소 보유 수 보장은 그대로다. 날아가 사라진 드롭은 세지 않으므로 보정은 계속된다.
+- 재시작 시 강화 되돌림 (2026-11-28): 일시정지 메뉴에서 레벨을 재시작하면 `ItemSystem.endLevelForRestart()`가 강화 중첩(확산·총알 강화)을 그 레벨을 시작할 때의 값으로 되돌린다. 버린 시도에서 먹은 강화가 남아 재시작을 반복해 강화를 모을 수 있던 문제를 막는다. 일반 레벨 종료(`endLevel`)는 그대로 강화를 유지한다.
+- 명중률 (2026-11-28): 확산 4단계의 뒤로 쏘는 총알은 명중률 계산(`bulletsShot`)에 넣지 않는다(`Ship.getLastForwardShots`). 확산을 쌓아도 명중률과 명중률 업적이 거의 맞지 않는 총알 때문에 떨어지지 않는다.
+- 클리어 회수와 시간제 아이템 (2026-11-28): 레벨 클리어 후 기체로 끌려오는 드롭 중 바로 켜지는 시간제 아이템(보호막·프리즈·부스트·점수 부스트)은 켜지 않고 조용히 없앤다(`ITEM_EXPIRED`). 예전에는 "collected" 알림과 함께 켜졌다가 레벨이 끝나며 바로 꺼졌다. 강화·생명 아이템은 그대로 적용되고, `pickup.autoUse=false`라면 슬롯에 들어가 다음 레벨에서 쓸 수 있다.
+- 혜성 꼬리 (2026-11-28): 혜성 꼬리를 속도 부호 대신 `Bullet.isPlayerShot()`으로 판단해 확산의 뒤로 쏘는 총알과 조준탄에도 그린다. 아래로 나는 총알은 꼬리가 위쪽에 생기도록 `BulletTrail.draw`에 방향 인자를 더했다(VFX 팀 파일: `BulletTrail`, `DrawManager.drawBulletTrail`, 기존 호출은 그대로 위로 나는 총알로 동작).

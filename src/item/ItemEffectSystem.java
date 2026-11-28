@@ -22,7 +22,15 @@ class ItemEffectSystem {
     /** Never reused within a run. Keeps increasing after clear. */
     private long nextEffectId = 1;
 
-    ItemEffectSystem() { }
+    /** Bullet power stacks per extra pierce (Team Entities). */
+    private final int bulletPowerPierceEvery;
+
+    ItemEffectSystem() { this(2); }
+
+    ItemEffectSystem(int bulletPowerPierceEvery) {
+        if (bulletPowerPierceEvery <= 0) throw new IllegalArgumentException("bulletPowerPierceEvery");
+        this.bulletPowerPierceEvery = bulletPowerPierceEvery;
+    }
 
     /**
      * Read-only check of whether the effect can be applied. null if possible, otherwise the failure reason.
@@ -45,9 +53,9 @@ class ItemEffectSystem {
      * Applies synchronously and returns Applied. All foreseeable checks run before success.
      * LIFE: calls port.tryAddLife() once; true → ok(null), false → failed(EFFECT_REJECTED).
      * SHIELD: keeps durationMillis/charges; using one while active restarts both.
-     * RAPID_FIRE/BULLET_SPEED/SPREAD/PIERCE: run-wide stacks (up to maxStacks).
+     * SPREAD/BULLET_POWER (EffectKind.isRunUpgrade): run-wide stacks (up to maxStacks).
      * FREEZE: blocks movement for durationMillis. BOOST/SCORE_BOOST add temporary bonuses derived from base stats.
-     * Using another boost or score boost while the same kind is active restarts its time, like the shield.
+     * Using another boost or score boost while the same kind is active restarts its time, like the shield (freeze too).
      * None of the effects change the ship's base stats directly.
      * A successful lasting effect returns an EffectView with a new effectId, registered before returning.
      * A rejection changes nothing, refreshes no time and consumes no ID. MANUAL items can also be triggered here via useSlot.
@@ -117,29 +125,23 @@ class ItemEffectSystem {
     /**
      * Always computes current effects from zero bonuses, unit multipliers and no movement block.
      * At most one effect per kind exists. Temporary BOOST does not multiply run-wide stacking bonuses.
-     * RAPID_FIRE: share of the base fire rate = magnitude * log2(1 + stacks), so every ship gains the same ratio
-     * (1 stack 1x, 2 about 1.58x, 3 2x, 7 3x).
-     * BULLET_SPEED, SPREAD, PIERCE: magnitude * stacks, so every stack adds the same whole amount.
+     * BULLET_POWER: share of the base fire rate = magnitude * log2(1 + stacks), so every ship gains the same
+     * ratio (1 stack 1x, 2 about 1.58x, 3 2x, 7 3x), and one pierce every bulletPowerPierceEvery stacks.
+     * SPREAD: magnitude * stacks pattern steps (see Ship.shoot).
      */
     Modifiers modifiers() {
         double fireRateRatio = 0.0;
-        double bulletSpeed = 0.0;
         int spread = 0, pierce = 0;
         double movementSpeedMultiplier = 1.0, fireRateMultiplier = 1.0, scoreMultiplier = 1.0;
         boolean movementBlocked = false;
         for (RunningEffect effect : running.values()) {
             switch (effect.item.effectKind) {
-                case RAPID_FIRE:
-                    fireRateRatio = logStackedBonus(effect);
-                    break;
-                case BULLET_SPEED:
-                    bulletSpeed = linearStackedBonus(effect);
+                case BULLET_POWER: // faster fire every stack, one pierce every N stacks (Team Entities)
+                    fireRateRatio = effect.item.magnitude * Math.log(1 + effect.stacks) / Math.log(2);
+                    pierce = effect.stacks / bulletPowerPierceEvery;
                     break;
                 case SPREAD:
-                    spread = (int) Math.round(linearStackedBonus(effect));
-                    break;
-                case PIERCE:
-                    pierce = (int) Math.round(linearStackedBonus(effect));
+                    spread = (int) Math.round(effect.item.magnitude * effect.stacks);
                     break;
                 case FREEZE:
                     movementBlocked = true;
@@ -155,7 +157,7 @@ class ItemEffectSystem {
                     break; // The shield works by charges and does not affect stats.
             }
         }
-        return new Modifiers(0.0, fireRateRatio, bulletSpeed, spread, pierce, movementBlocked,
+        return new Modifiers(0.0, fireRateRatio, 0.0, spread, pierce, movementBlocked,
             movementSpeedMultiplier, fireRateMultiplier, scoreMultiplier);
     }
 
@@ -174,6 +176,28 @@ class ItemEffectSystem {
         return Collections.unmodifiableList(views);
     }
 
+    /**
+     * Puts run-wide stacks back to an earlier stacksByItemId() copy, for a level restart (Team Entities).
+     * Stacks only grow during a run, so this only lowers them, or removes an effect missing from the copy
+     * and returns Ended(LEVEL_ENDED) for it.
+     */
+    List<Ended> restoreStacks(Map<String, Integer> earlier) {
+        List<Ended> ended = new ArrayList<Ended>();
+        Iterator<RunningEffect> iterator = running.values().iterator();
+        while (iterator.hasNext()) {
+            RunningEffect effect = iterator.next();
+            if (!effect.stackable()) continue;
+            Integer keep = earlier.get(effect.item.itemId);
+            if (keep != null && keep > 0) {
+                effect.stacks = Math.min(effect.stacks, keep);
+                continue;
+            }
+            ended.add(new Ended(effect.item.itemId, effect.effectId, EffectEndReason.LEVEL_ENDED));
+            iterator.remove();
+        }
+        return Collections.unmodifiableList(ended);
+    }
+
     /** Removes stage effects and returns Ended(LEVEL_ENDED) for each. Run-wide stacking and equipped effects and IDs are kept. */
     List<Ended> clear() {
         List<Ended> ended = new ArrayList<Ended>(running.size());
@@ -185,14 +209,6 @@ class ItemEffectSystem {
             iterator.remove();
         }
         return Collections.unmodifiableList(ended);
-    }
-
-    private static double logStackedBonus(RunningEffect effect) {
-        return effect.item.magnitude * Math.log(1 + effect.stacks) / Math.log(2);
-    }
-
-    private static double linearStackedBonus(RunningEffect effect) {
-        return effect.item.magnitude * effect.stacks;
     }
 
     /** Extra time for a timed active (MANUAL) item while Long Lasting is equipped, otherwise 0. */
@@ -209,6 +225,10 @@ class ItemEffectSystem {
 
     /** Same kind/duration/value rules as ItemDefinitions.validate. Not called for LIFE. */
     private static void validateDefinition(ItemInfo item) {
+        if (item.effectKind.isRunUpgrade()) {
+            expect(item, DurationKind.UNTIL_RUN_END, item.magnitude != null && item.maxStacks != null);
+            return;
+        }
         switch (item.effectKind) {
             case SHIELD:
                 expect(item, DurationKind.TIMED, item.durationMillis != null && item.charges != null);
@@ -220,12 +240,6 @@ class ItemEffectSystem {
             case SCORE_BOOST:
                 expect(item, DurationKind.TIMED, item.durationMillis != null
                     && item.magnitude != null && item.magnitude > 1.0);
-                break;
-            case RAPID_FIRE:
-            case BULLET_SPEED:
-            case SPREAD:
-            case PIERCE:
-                expect(item, DurationKind.UNTIL_RUN_END, item.magnitude != null && item.maxStacks != null);
                 break;
             case EXTRA_SLOTS:
             case MAGNET:
@@ -266,10 +280,11 @@ class ItemEffectSystem {
         boolean timed() { return item.durationKind == DurationKind.TIMED; }
         boolean stackable() { return item.durationKind == DurationKind.UNTIL_RUN_END; }
         boolean equipped() { return item.durationKind == DurationKind.WHILE_EQUIPPED; }
-        /** Using another one while active restarts it instead of being rejected (shield, boost, score boost). */
+        /** Using another one while active restarts it instead of being rejected (shield, boost, score boost, and freeze since
+         * pickups start at once - Team Entities). */
         boolean refreshable() {
             return item.effectKind == EffectKind.SHIELD || item.effectKind == EffectKind.BOOST
-                || item.effectKind == EffectKind.SCORE_BOOST;
+                || item.effectKind == EffectKind.SCORE_BOOST || item.effectKind == EffectKind.FREEZE;
         }
         EffectView view() {
             return new EffectView(effectId, item, timed() ? Long.valueOf(remainingMillis) : null,

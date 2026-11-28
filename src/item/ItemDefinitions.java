@@ -57,45 +57,11 @@ class ItemDefinitions {
         );
         definitions.put(shield.itemId, shield);
 
-        ItemInfo rapidFire = new ItemInfo(
-            "rapid_fire",
-            "Rapid Fire",
-            "Fires " + percentOf(balance.rapidFireBonus) + "% faster than the ship's base rate for the rest of"
-                + " the run. Stacks up to " + balance.rapidFireMaxStacks + " times with smaller gains each time.",
-            "rapid_fire",
-            ActivationMode.ON_PICKUP,
-            EffectKind.RAPID_FIRE,
-            DurationKind.UNTIL_RUN_END,
-            null,
-            null,
-            balance.rapidFireBonus,
-            balance.rapidFireMaxStacks,
-            EnumSet.of(GrantTiming.NOW, GrantTiming.NEXT_LEVEL)
-        );
-        definitions.put(rapidFire.itemId, rapidFire);
-
-        ItemInfo bulletSpeed = new ItemInfo(
-            "bullet_speed",
-            "Bullet Speed",
-            "Bullets fly " + number(balance.bulletSpeedBonus) + " px/frame faster for the rest of the run."
-                + " Stacks up to " + balance.bulletSpeedMaxStacks + " times.",
-            "bullet_speed",
-            ActivationMode.ON_PICKUP,
-            EffectKind.BULLET_SPEED,
-            DurationKind.UNTIL_RUN_END,
-            null,
-            null,
-            balance.bulletSpeedBonus,
-            balance.bulletSpeedMaxStacks,
-            EnumSet.of(GrantTiming.NOW, GrantTiming.NEXT_LEVEL)
-        );
-        definitions.put(bulletSpeed.itemId, bulletSpeed);
-
         ItemInfo spread = new ItemInfo(
             "spread",
             "Spread Shot",
-            "Each shot fires one more bullet in a fan for the rest of the run. Stacks up to "
-                + balance.spreadMaxStacks + " times.",
+            "Each stack adds shots for the rest of the run: side by side, diagonal, a third front shot,"
+                + " backwards, aimed, then wider diagonals. Stacks up to " + balance.spreadMaxStacks + " times.",
             "spread",
             ActivationMode.ON_PICKUP,
             EffectKind.SPREAD,
@@ -108,22 +74,26 @@ class ItemDefinitions {
         );
         definitions.put(spread.itemId, spread);
 
-        ItemInfo pierce = new ItemInfo(
-            "pierce",
-            "Pierce",
-            "Bullets pass through one more enemy for the rest of the run. Stacks up to "
-                + balance.pierceMaxStacks + " times.",
-            "pierce",
+        // Team Entities: faster fire and pierce in one upgrade (replaced rapid fire, bullet speed and
+        // pierce). magnitude is the fire rate share, log2(1 + stacks) curve; every
+        // bulletPower.pierceEvery stacks also add one pierce.
+        ItemInfo bulletPower = new ItemInfo(
+            "bullet_power",
+            "Bullet Power",
+            "Fires " + percentOf(balance.bulletPowerFireBonus) + "% faster for the rest of the run, and every "
+                + balance.bulletPowerPierceEvery + " stacks bullets pass through one more enemy. Stacks up to "
+                + balance.bulletPowerMaxStacks + " times.",
+            "bullet_power",
             ActivationMode.ON_PICKUP,
-            EffectKind.PIERCE,
+            EffectKind.BULLET_POWER,
             DurationKind.UNTIL_RUN_END,
             null,
             null,
-            1.0, // one extra enemy per stack
-            balance.pierceMaxStacks,
+            balance.bulletPowerFireBonus,
+            balance.bulletPowerMaxStacks,
             EnumSet.of(GrantTiming.NOW, GrantTiming.NEXT_LEVEL)
         );
-        definitions.put(pierce.itemId, pierce);
+        definitions.put(bulletPower.itemId, bulletPower);
 
         ItemInfo freeze = new ItemInfo(
             "freeze",
@@ -235,12 +205,12 @@ class ItemDefinitions {
 
     /**
      * Looks up a registered ID. Returns null only for a valid but unknown ID. The list is immutable for a run.
-     * Registered by default: life (instant, +1 life), shield (manual, time/charges), rapid_fire (on pickup, stacks for the run),
-     * bullet_speed / spread / pierce (on pickup, stack for the run), freeze (manual, blocks enemy movement for a time),
+     * Registered by default: life (instant, +1 life), shield (manual, time/charges),
+     * spread / bullet_power (on pickup, stack for the run), freeze (manual, blocks enemy movement for a time),
      * boost (manual, temporary extra ship speed/fire rate), score_boost (manual, temporary extra earned score),
      * extra_slots / magnet / max_life / long_lasting (owned and equipped outside a run, work in every run while equipped; never dropped).
      * boost / score_boost drop from enemies like the other items (drop.weight.boost / drop.weight.scoreBoost).
-     * All support NOW. Only the run-wide stacks (rapid_fire/bullet_speed/spread/pierce) support NEXT_LEVEL. Values come from ItemBalance (config file).
+     * All support NOW. Only the run-wide upgrades (EffectKind.isRunUpgrade) support NEXT_LEVEL. Values come from ItemBalance (config file).
      */
     ItemInfo find(String itemId) { return itemsById.get(itemId); }
 
@@ -251,7 +221,7 @@ class ItemDefinitions {
      * Validates all definitions/rules without changing state.
      * Checks both DropSource rules, existing IDs, a positive finite weight sum (when p>0), and the configured area.
      * Also checks each definition's kind/duration/value combination. Duplicate effects of the same kind are REJECTed, except SHIELD/BOOST/SCORE_BOOST, which restart.
-     * NEXT_LEVEL is allowed only for RAPID_FIRE/BULLET_SPEED/SPREAD/PIERCE with ON_PICKUP + UNTIL_RUN_END.
+     * NEXT_LEVEL is allowed only for run-wide upgrades (EffectKind.isRunUpgrade) with ON_PICKUP + UNTIL_RUN_END.
      * LIFE is fixed to INSTANT, active items to TIMED, and the stacking effects to UNTIL_RUN_END.
      * SHIELD requires durationMillis/charges, FREEZE requires durationMillis, BOOST/SCORE_BOOST require durationMillis/magnitude>1,
      * and the stacking effects require magnitude/maxStacks.
@@ -291,6 +261,10 @@ class ItemDefinitions {
             requireValid(kinds.add(item.effectKind), "duplicate effect kind: " + item.effectKind);
             requireValid(item.supportedGrantTimings.contains(GrantTiming.NOW),
                 "NOW timing required: " + item.itemId);
+            if (item.effectKind.isRunUpgrade()) {
+                requireDefinition(item, isRunStack(item));
+                continue;
+            }
 
             switch (item.effectKind) {
                 case LIFE:
@@ -306,14 +280,6 @@ class ItemDefinitions {
                         && item.durationMillis != null
                         && item.charges != null && item.magnitude == null && item.maxStacks == null
                         && item.supportedGrantTimings.equals(EnumSet.of(GrantTiming.NOW)));
-                    break;
-                case RAPID_FIRE:
-                    requireDefinition(item, isRunStack(item));
-                    break;
-                case BULLET_SPEED:
-                case SPREAD:
-                case PIERCE:
-                    requireDefinition(item, isRunStack(item));
                     break;
                 case FREEZE:
                     requireDefinition(item, item.activationMode == ActivationMode.MANUAL

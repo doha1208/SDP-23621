@@ -86,13 +86,13 @@ public final class ItemVisualGameTest {
             Ship ship = (Ship) get(game, "ship");
             ItemSystem items = (ItemSystem) get(game, "items");
             items.update(ship, true);
-            for (String id : new String[]{"rapid_fire", "bullet_speed", "spread", "pierce"}) grant(items, id);
-            grant(items, "rapid_fire");
+            for (String id : new String[]{"spread", "bullet_power"}) grant(items, id);
+            grant(items, "bullet_power");
             ItemFeedback feedback = (ItemFeedback) get(items, "feedback");
             feedback.clear();
             grant(items, "shield");
             call(game, "draw"); snapshot(output, "game-item-received");
-            check(items.getNotice().contains("Press 1"), "Pickup explains the real key");
+            check(items.getNotice().contains("Press Z"), "Pickup explains the real key");
             check(items.useSlot(0) == UseResult.USED, "Shield activates");
             call(game, "draw"); snapshot(output, "game-shield-active");
             check(items.getNotice().startsWith("Shield active"), "Using replaces the pickup instruction");
@@ -101,7 +101,7 @@ public final class ItemVisualGameTest {
                 check(items.useSlot(0) == UseResult.USED, "Activate " + id);
             }
             for (String id : new String[]{"shield", "freeze", "boost"}) grant(items, id);
-            check(items.api().getView().effects.size() == 8, "All eight gameplay effects are present");
+            check(items.api().getView().effects.size() == 6, "All six gameplay effects are present");
             ItemManager manager = (ItemManager) get(items, "manager");
             ItemDropSystem drops = (ItemDropSystem) get(manager, "drops");
             ((Random) get(drops, "random")).setSeed(23621);
@@ -126,10 +126,10 @@ public final class ItemVisualGameTest {
             call(game, "resumeGameplay");
             call(game, "update");
             check(items.shield().remainingMillis == duration, "Resume discards paused wall time");
-            items.useSlot(1);
-            check(items.api().getView().slots.get(1) != null, "Already active rejection preserves the held item");
-            check(items.getNotice().contains("already active"), "Rejection shows its cause");
-            call(game, "draw"); snapshot(output, "game-item-rejected");
+            // Freeze restarts while active, like the shield (auto-use pickups need this).
+            check(items.useSlot(1) == UseResult.USED && items.api().getView().slots.get(1) == null,
+                "Freeze used while active restarts it");
+            call(game, "draw"); snapshot(output, "game-item-refreshed");
             // Optional short hold is for human/native screenshot inspection, not gameplay automation.
             if (args.length > 1 && args[1].equals("--hold")) Thread.sleep(45000);
             System.out.println("ItemVisualGameTest: " + checks + " checks passed");

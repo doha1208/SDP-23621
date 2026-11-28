@@ -24,14 +24,25 @@ final class ItemBalance {
 
     final long shieldDurationMillis;
     final int shieldCharges;
+    /** Run-wide upgrades: max stacks and drop weight multiplier per stack. Spread adds one shot pattern step per stack. */
+    final int spreadMaxStacks;
+    final double spreadDropDecay;
+    /** Bullet power (Team Entities): extra share of the base fire rate (log2 curve) plus one pierce every pierceEvery stacks. */
+    final double bulletPowerFireBonus, bulletPowerDropDecay;
+    final int bulletPowerMaxStacks, bulletPowerPierceEvery;
+    /** Spread shot geometry (Team Entities): front gap px, diagonal and wide diagonal sideways px per frame. */
+    final int spreadFrontGap, spreadDiagonal, spreadWideDiagonal;
+    /** true: an upgrade's drop decay counts the stacks of all upgrades together, not just its own (Team Entities). */
+    final boolean sharedUpgradeDecay;
+    /** Own per-kill chance for upgrades, rolled apart from basic items; null keeps one shared roll (Team Entities). */
+    final Double upgradeDropProbability;
     /**
-     * Run-wide stacks: first-pickup bonus (rapid fire: extra share of the base fire rate,
-     * bullet speed: extra pixels per frame per stack), max stacks, drop weight multiplier per stack.
-     * Spread adds one bullet lane per stack and pierce one extra enemy per stack.
+     * Upgrade catch-up (Team Entities). upgradeFloors[level] = upgrades the player should own in that
+     * level (index 0 unused, 0 = no floor). Once catchUpCheckAt of the stage has passed with fewer, the
+     * upgrade chance is at least catchUpStart + catchUpStep per kill since, and 1 from catchUpForceAt.
      */
-    final double rapidFireBonus, bulletSpeedBonus;
-    final int rapidFireMaxStacks, bulletSpeedMaxStacks, spreadMaxStacks, pierceMaxStacks;
-    final double rapidFireDropDecay, bulletSpeedDropDecay, spreadDropDecay, pierceDropDecay;
+    final int[] upgradeFloors;
+    final double catchUpCheckAt, catchUpStart, catchUpStep, catchUpForceAt;
     final long freezeDurationMillis;
     final long boostDurationMillis, scoreBoostDurationMillis;
     final double boostMultiplier, scoreBoostMultiplier;
@@ -42,12 +53,16 @@ final class ItemBalance {
     final double regularDropProbability, specialDropProbability;
     /** itemId → weight. Keeps registration order. */
     final Map<String, Double> dropWeights;
-    final double fallSpeed, horizontalSpeed, dropWidth, dropHeight;
-    final long directionChangeMillis;
-    /** Legacy LevelRules constructor value; drops no longer land or use a ground lifetime. */
-    final long groundLifetimeMillis;
+    final double dropWidth, dropHeight;
+    /** Bouncing drops (Team Entities): speed in px/s and how long they bounce before flying off screen. */
+    final double bounceSpeed;
+    final long bounceMillis;
+    /** Speed (px/s) at which leftover drops fly to the ship when a level is cleared (Team Entities). */
+    final double gatherSpeed;
 
     final int inventoryCapacity;
+    /** Picked-up slot items (shield, freeze, boost, score boost) start at once instead of going to a slot (Team Entities). */
+    final boolean autoUse;
 
     /** Equipped items: extra slots, and the magnet score for a drop it cannot keep, extra max lives, and extra active item time. */
     final int extraSlotsAmount, magnetConvertScore, maxLifeAmount;
@@ -56,6 +71,14 @@ final class ItemBalance {
 
     /** Default values (initial design values). */
     static ItemBalance defaults() { return new ItemBalance(new Properties()); }
+
+    /** Highest level with its own drop.upgrade.floor.stageN key (Team Entities). */
+    static final int MAX_FLOOR_LEVEL = 10;
+
+    /** Upgrades the player should own in this level, 0 for none or an unknown level (Team Entities). */
+    int upgradeFloor(int level) {
+        return level >= 1 && level <= MAX_FLOOR_LEVEL ? upgradeFloors[level] : 0;
+    }
 
     /** Finds and reads the config file. Throws if the given path is missing or unreadable. */
     static ItemBalance load() {
@@ -84,16 +107,15 @@ final class ItemBalance {
     ItemBalance(Properties settings) {
         shieldDurationMillis = positiveLong(settings, "shield.durationMillis", 8_000L);
         shieldCharges = positiveInt(settings, "shield.charges", 1);
-        rapidFireBonus = positiveDouble(settings, "rapidFire.bonus", 0.35);
-        rapidFireMaxStacks = positiveInt(settings, "rapidFire.maxStacks", 6);
-        rapidFireDropDecay = probability(settings, "rapidFire.dropDecay", 0.7);
-        bulletSpeedBonus = positiveDouble(settings, "bulletSpeed.bonus", 1);
-        bulletSpeedMaxStacks = positiveInt(settings, "bulletSpeed.maxStacks", 3);
-        bulletSpeedDropDecay = probability(settings, "bulletSpeed.dropDecay", 0.7);
-        spreadMaxStacks = positiveInt(settings, "spread.maxStacks", 4);
+        spreadMaxStacks = positiveInt(settings, "spread.maxStacks", 6);
         spreadDropDecay = probability(settings, "spread.dropDecay", 0.7);
-        pierceMaxStacks = positiveInt(settings, "pierce.maxStacks", 3);
-        pierceDropDecay = probability(settings, "pierce.dropDecay", 0.7);
+        spreadFrontGap = positiveInt(settings, "spread.frontGap", 14);
+        spreadDiagonal = positiveInt(settings, "spread.diagonalSpeedX", 3);
+        spreadWideDiagonal = positiveInt(settings, "spread.wideDiagonalSpeedX", 6);
+        bulletPowerFireBonus = positiveDouble(settings, "bulletPower.fireBonus", 0.35);
+        bulletPowerMaxStacks = positiveInt(settings, "bulletPower.maxStacks", 6);
+        bulletPowerPierceEvery = positiveInt(settings, "bulletPower.pierceEvery", 2);
+        bulletPowerDropDecay = probability(settings, "bulletPower.dropDecay", 0.7);
         freezeDurationMillis = positiveLong(settings, "freeze.durationMillis", 4_000L);
         boostDurationMillis = positiveLong(settings, "boost.durationMillis", 7_000L);
         boostMultiplier = multiplier(settings, "boost.multiplier", 1.5);
@@ -106,26 +128,36 @@ final class ItemBalance {
         lifeCapBonusScore = nonNegativeInt(settings, "life.capBonusScore", 200);
 
         regularDropProbability = probability(settings, "drop.regular.probability", 0.15);
+        sharedUpgradeDecay = flag(settings, "drop.upgradeDecay.shared", false);
+        upgradeDropProbability = raw(settings, "drop.upgrade.probability") == null ? null
+            : probability(settings, "drop.upgrade.probability", 0);
+        upgradeFloors = new int[MAX_FLOOR_LEVEL + 1];
+        for (int level = 1; level <= MAX_FLOOR_LEVEL; level++)
+            upgradeFloors[level] = nonNegativeInt(settings, "drop.upgrade.floor.stage" + level, 0);
+        catchUpCheckAt = probability(settings, "drop.upgrade.catchUp.checkAt", 0.5);
+        catchUpStart = probability(settings, "drop.upgrade.catchUp.start", 0.10);
+        catchUpStep = probability(settings, "drop.upgrade.catchUp.step", 0.02);
+        catchUpForceAt = probability(settings, "drop.upgrade.catchUp.forceAt", 0.85);
+        if (catchUpForceAt < catchUpCheckAt)
+            throw new IllegalArgumentException("drop.upgrade.catchUp.forceAt must not be below checkAt");
         specialDropProbability = probability(settings, "drop.special.probability", 1.0);
         Map<String, Double> weights = new LinkedHashMap<String, Double>();
         weights.put("life", weight(settings, "drop.weight.life", 0.6));
         weights.put("shield", weight(settings, "drop.weight.shield"));
-        weights.put("rapid_fire", weight(settings, "drop.weight.rapidFire"));
-        weights.put("bullet_speed", weight(settings, "drop.weight.bulletSpeed"));
         weights.put("spread", weight(settings, "drop.weight.spread"));
-        weights.put("pierce", weight(settings, "drop.weight.pierce"));
+        weights.put("bullet_power", weight(settings, "drop.weight.bulletPower"));
         weights.put("freeze", weight(settings, "drop.weight.freeze"));
         weights.put("boost", weight(settings, "drop.weight.boost"));
         weights.put("score_boost", weight(settings, "drop.weight.scoreBoost"));
         dropWeights = java.util.Collections.unmodifiableMap(weights);
-        fallSpeed = positiveDouble(settings, "drop.fallSpeed", 80);
-        horizontalSpeed = positiveDouble(settings, "drop.horizontalSpeed", 65);
-        directionChangeMillis = positiveLong(settings, "drop.directionChangeMillis", 700L);
+        bounceSpeed = positiveDouble(settings, "drop.speed", 150);
+        bounceMillis = positiveLong(settings, "drop.bounceMillis", 6_000L);
+        gatherSpeed = positiveDouble(settings, "drop.gatherSpeed", 700);
         dropWidth = positiveDouble(settings, "drop.width", 24);
         dropHeight = positiveDouble(settings, "drop.height", 24);
-        groundLifetimeMillis = positiveLong(settings, "drop.groundLifetimeMillis", 8_000L);
 
         inventoryCapacity = positiveInt(settings, "inventory.capacity", 3);
+        autoUse = flag(settings, "pickup.autoUse", true);
 
         extraSlotsAmount = positiveInt(settings, "equip.extraSlots.amount", 1);
         magnetConvertScore = positiveInt(settings, "equip.magnet.convertScore", 50);
@@ -160,6 +192,14 @@ final class ItemBalance {
         } catch (NumberFormatException error) {
             throw invalid(key, value, "an integer");
         }
+    }
+
+    private static boolean flag(Properties settings, String key, boolean fallback) {
+        String value = raw(settings, key);
+        if (value == null) return fallback;
+        if (value.equalsIgnoreCase("true")) return true;
+        if (value.equalsIgnoreCase("false")) return false;
+        throw invalid(key, value, "true or false");
     }
 
     private static double positiveDouble(Properties settings, String key, double fallback) {

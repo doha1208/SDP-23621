@@ -137,7 +137,7 @@ public final class ItemVisualFeedbackTest {
         });
         items.update(ship, true);
         grant(items, "shield");
-        check(items.getNotice().contains("Press 1"), "Direct grants explain the actual inventory key");
+        check(items.getNotice().contains("Press Z"), "Direct grants explain the actual inventory key");
         check(items.useSlot(0) == UseResult.USED, "Shield use succeeds");
         check(items.getNotice().startsWith("Shield active"), "Real shield use receives active feedback");
         check(items.shield() != null && items.api().getView().slots.get(0) == null,
@@ -159,7 +159,7 @@ public final class ItemVisualFeedbackTest {
         items.update(ship, true);
         check(items.shield().remainingMillis == remaining, "Paused elapsed time does not expire effects on resume");
         check(items.useSlot(0) == UseResult.EMPTY_SLOT, "Empty slot is still rejected");
-        check(items.getNotice().contains("Slot 1 is empty"), "Failed use is immediately explained");
+        check(items.getNotice().contains("Slot Z is empty"), "Failed use is immediately explained");
         feedback(items).clear();
         items.endLevel();
         check(items.getNotice() == null && items.shield() == null, "Level end clears effects and notices");

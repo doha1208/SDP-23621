@@ -19,4 +19,12 @@ public interface LevelDirector {
 
 	/** @return True once nothing more will spawn this level. */
 	boolean isFinished();
+
+	/**
+	 * @return Part of the level played so far, 0 to 1, or -1 when the
+	 *         director has no fixed length (Team Entities, upgrade catch-up).
+	 */
+	default double getProgress() {
+		return -1;
+	}
 }

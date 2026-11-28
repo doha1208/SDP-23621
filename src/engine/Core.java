@@ -138,8 +138,10 @@ public final class Core {
 		int startLevel = Integer.getInteger("game.startLevel", 1);
 		if (startLevel < 1 || startLevel > NUM_LEVELS)
 			startLevel = 1;
-		// Menu play is one timed run. Non-first stages remain diagnostic entry points.
-		boolean timedRun = startLevel == 1;
+		// Menu play goes through stages 1 to 10, each with its own enemy
+		// settings, with bosses on stages 5 and 10 (Team Entities). The timed
+		// run (120 seconds, then one boss) is opt-in: -Dgame.timedRun=true.
+		boolean timedRun = startLevel == 1 && Boolean.getBoolean("game.timedRun");
 
 		int returnCode = startLevel == 1 ? 1 : 2;
 		do {

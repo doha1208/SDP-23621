@@ -66,7 +66,11 @@ public final class WarpIn {
 	 *            Length of the level start countdown (INPUT_DELAY).
 	 */
 	public void startLevel(final int countdownMillis) {
-		plan(countdownMillis - GO_TIME - (long) (IMPACT * START_DURATION),START_DURATION);
+		long impactAt = countdownMillis - GO_TIME;
+		if (impactAt >= (long) (IMPACT * START_DURATION))
+			plan(impactAt - (long) (IMPACT * START_DURATION), START_DURATION);
+		else // Short START banner (Team Entities): a quicker warp that lands as play begins.
+			plan(0, (int) Math.max(1, countdownMillis / IMPACT));
 	}
 
 	/** Plans a warp starting in {@code delay} ms, lasting {@code length}. */

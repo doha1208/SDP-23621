@@ -23,6 +23,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.logging.Logger;
 
+import engine.ControlKeys;
 import engine.Core;
 import entity.Entity;
 import entity.Ship;
@@ -38,8 +39,8 @@ import item.ItemAPI.*;
  * Call only from the thread that owns game state.
  */
 public final class ItemSystem {
-    /** Drops exist below the HUD separator line (same height as GameScreen's separator). */
-    private static final double PLAY_AREA_TOP = 40;
+    /** Drops bounce below the item HUD row (y 42 to 60), so they are never hidden under it (Team Entities). */
+    private static final double PLAY_AREA_TOP = 60;
 
     private static ItemSystem current;
 
@@ -51,6 +52,8 @@ public final class ItemSystem {
     private final ItemAPI api;
     private GameHooks hooks;
     private int levelNumber;
+    /** Upgrade stacks when this level began, so a restart cannot keep upgrades from the try it threw away. */
+    private Map<String, Integer> levelStartUpgrades;
     private long lastUpdateNanos = -1;
     /** Shared game logger, like the other systems use. */
     private final Logger logger = Core.getLogger();
@@ -241,20 +244,48 @@ public final class ItemSystem {
         ItemAPI.required(ship, "ship");
         endLevel();
         levelNumber = level;
+        // LevelRules still takes the old fall speed and ground lifetime (public API); bouncing drops
+        // ignore both, so the drop speed and bounce time stand in for them (Team Entities).
         LevelRules rules = new LevelRules("level-" + level, 0, screenWidth, PLAY_AREA_TOP, screenHeight,
-            balance.fallSpeed, balance.dropWidth, balance.dropHeight, balance.groundLifetimeMillis,
+            balance.bounceSpeed, balance.dropWidth, balance.dropHeight, balance.bounceMillis,
             dropRules());
         manager.beginLevel(rules, lifePort);
+        manager.setUpgradeFloor(balance.upgradeFloor(level)); // upgrade catch-up (Team Entities)
+        levelStartUpgrades = manager.upgradeStacks(); // for restartLevel (Team Entities)
+        // Spread shot geometry from the balance file; it does not change during a level (Team Entities).
+        if (ship instanceof Ship)
+            ((Ship) ship).setSpreadPattern(balance.spreadFrontGap, balance.spreadDiagonal,
+                balance.spreadWideDiagonal);
         lastUpdateNanos = -1;
         feedback.clear();
         logger.info("Item system started level " + level + ".");
+    }
+
+    /**
+     * Part of the stage played so far, 0 to 1 (Team Entities). Upgrades come more often once a stage is
+     * half over and the player owns fewer than that stage's floor (drop.upgrade.floor.stageN).
+     * Below 0, or never called (boss stages, timed run), means no catch-up.
+     */
+    public void setStageProgress(double progress) {
+        if (isLevelActive()) manager.setStageProgress(progress);
     }
 
     /** Exclude pauses/countdowns from effect and drop timers. */
 	public void pauseClock() { lastUpdateNanos = -1; }
 
     /** Called only during active gameplay; pauseClock excludes suspended time. */
-    public void update(Entity ship, boolean shipAvailable) {
+    public void update(Entity ship, boolean shipAvailable) { update(ship, shipAvailable, false); }
+
+    /**
+     * After a level is cleared: every drop still on the field flies to the ship and is picked up,
+     * so the level ends tidy (Team Entities). Call every frame until hasDrops() is false.
+     */
+    public void gatherDrops(Entity ship) { update(ship, true, true); }
+
+    /** True while item drops are still on the field. */
+    public boolean hasDrops() { return isLevelActive() && manager.hasDrops(); }
+
+    private void update(Entity ship, boolean shipAvailable, boolean gather) {
         // Spread/pierce reach the ship here, so the shared GameScreen needs no extra call.
         if (ship instanceof Ship) ((Ship) ship).setWeaponMods(spreadCount(), pierceCount());
         if (!isLevelActive()) return;
@@ -267,7 +298,7 @@ public final class ItemSystem {
         Bounds bounds = new Bounds(ship.getPositionX(), ship.getPositionY(),
             Math.max(1, ship.getWidth()), Math.max(1, ship.getHeight()));
         feedback.advance(delta, bounds);
-        manager.update(delta, new PlayerSnapshot(bounds, shipAvailable, shipAvailable));
+        manager.update(delta, new PlayerSnapshot(bounds, shipAvailable, shipAvailable), gather);
         feedback.checkFullInventory(api.getView(), bounds, shipAvailable);
     }
 
@@ -296,7 +327,7 @@ public final class ItemSystem {
         if (result != UseResult.USED) {
             String reason;
             switch (result) {
-                case EMPTY_SLOT: reason = "Slot " + (slot + 1) + " is empty"; break;
+                case EMPTY_SLOT: reason = "Slot " + ControlKeys.itemSlotLabel(slot) + " is empty"; break;
                 case EFFECT_ALREADY_ACTIVE: reason = "This effect is already active"; break;
                 case INVALID_SLOT: reason = "Choose an existing item slot"; break;
                 case PLAYER_UNAVAILABLE: reason = "Wait until your ship is ready"; break;
@@ -384,6 +415,16 @@ public final class ItemSystem {
         feedback.drawNotice(graphics, width, height, font);
     }
 
+    /**
+     * Ends the level for a restart of the same level (Team Entities): upgrade stacks go back to what they
+     * were when the level began, then the level ends as in endLevel(). Does nothing if no level is active.
+     */
+    public void endLevelForRestart() {
+        if (!isLevelActive()) return;
+        if (levelStartUpgrades != null) manager.restoreUpgradeStacks(levelStartUpgrades);
+        endLevel();
+    }
+
     /** Ends the level. Does nothing if no level is active. */
     public void endLevel() {
         if (!isLevelActive()) return;
@@ -391,6 +432,9 @@ public final class ItemSystem {
         feedback.clear();
         logger.info("Item system ended level " + levelNumber + ".");
     }
+
+    /** True when picked-up items start at once instead of going to a slot (Team Entities). */
+    public boolean autoUse() { return balance.autoUse; }
 
     /** Message about the last item action for the screen, or null when there is nothing recent. */
     public String getNotice() {
@@ -436,9 +480,11 @@ public final class ItemSystem {
                     int key = event.slotIndex + 1;
                     logger.info("Item collected: " + name + " stored in slot " + key + ".");
                     feedback.show(item.effectKind, name + " collected",
-                        "Press " + key + " / " + ItemArtwork.describe(item, null), false);
+                        "Press " + ControlKeys.itemSlotLabel(event.slotIndex) + " / " + ItemArtwork.describe(item, null), false);
                 } else {
                     logger.info("Item collected: " + name + ".");
+                    // An auto-use pickup counts as using the item (Team Entities).
+                    if (item.activationMode == ActivationMode.MANUAL) Core.getAchievementManager().recordItemUsed();
                 }
                 break;
             case ITEM_USED:
@@ -482,7 +528,7 @@ public final class ItemSystem {
             case ITEM_GRANTED:
                 if (event.slotIndex != null)
                     feedback.show(item.effectKind, name + " received",
-                        "Press " + (event.slotIndex + 1) + " / " + ItemArtwork.describe(item, null), false);
+                        "Press " + ControlKeys.itemSlotLabel(event.slotIndex) + " / " + ItemArtwork.describe(item, null), false);
                 break;
             default:
                 logger.info("Item event " + event.type + ": " + name + ".");
@@ -511,10 +557,8 @@ public final class ItemSystem {
     private Map<DropSource, DropRule> dropRules() {
         Map<String, Double> weights = balance.dropWeights;
         Map<String, Double> decay = new java.util.LinkedHashMap<String, Double>();
-        decay.put("rapid_fire", balance.rapidFireDropDecay);
-        decay.put("bullet_speed", balance.bulletSpeedDropDecay);
         decay.put("spread", balance.spreadDropDecay);
-        decay.put("pierce", balance.pierceDropDecay);
+        decay.put("bullet_power", balance.bulletPowerDropDecay);
         Map<DropSource, DropRule> rules = new EnumMap<DropSource, DropRule>(DropSource.class);
         rules.put(DropSource.REGULAR_ENEMY, new DropRule(balance.regularDropProbability, weights, decay));
         rules.put(DropSource.SPECIAL_ENEMY, new DropRule(balance.specialDropProbability, weights, decay));
@@ -526,10 +570,8 @@ public final class ItemSystem {
         switch (kind) {
             case LIFE: return Color.RED;
             case SHIELD: return Color.CYAN;
-            case RAPID_FIRE: return Color.ORANGE;
-            case BULLET_SPEED: return Color.YELLOW;
             case SPREAD: return new Color(0, 160, 255);
-            case PIERCE: return new Color(190, 90, 255);
+            case BULLET_POWER: return new Color(255, 120, 60);
             case FREEZE: return new Color(150, 150, 255);
             case BOOST: return new Color(100, 255, 100);
             case SCORE_BOOST: return new Color(255, 100, 200);

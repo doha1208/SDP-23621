@@ -115,8 +115,9 @@ public final class EnemyManager implements Iterable<Enemy> {
 	 * Moves every enemy and lets them shoot. Call only while gameplay runs.
 	 *
 	 * @param frozen  True while the freeze item is active. It holds only the
-	 *                enemies that were on the field when it began; enemies
-	 *                that spawn during the freeze move normally.
+	 *                enemies that were on the field when it began, and they
+	 *                neither move nor shoot; enemies that spawn during the
+	 *                freeze move and shoot normally.
 	 * @param playerX Player center x.
 	 * @param playerY Player center y.
 	 */
@@ -128,8 +129,11 @@ public final class EnemyManager implements Iterable<Enemy> {
 			this.frozenEnemies.clear();
 		this.wasFrozen = frozen;
 		for (Enemy enemy : this.enemies) {
-			enemy.move(this.frozenEnemies.contains(enemy));
-			enemy.tryFire(playerX, playerY, this.bullets);
+			boolean held = this.frozenEnemies.contains(enemy);
+			enemy.move(held);
+			// A frozen enemy does not shoot either; its shot timer waits.
+			if (!held)
+				enemy.tryFire(playerX, playerY, this.bullets);
 		}
 	}
 

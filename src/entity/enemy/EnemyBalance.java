@@ -82,9 +82,11 @@ public final class EnemyBalance {
 	 */
 	EnemyBalance(final Properties settings) {
 		Map<String, EnemyStats> loaded = new LinkedHashMap<String, EnemyStats>();
+		// One knob that slows (or speeds up) every enemy's movement.
+		double speedScale = positiveDouble(settings, "speed.scale", 0.85);
 		for (Map.Entry<String, EnemyStats> entry : DEFAULT_STATS.entrySet())
-			loaded.put(entry.getKey(),
-					readStats(settings, entry.getKey(), entry.getValue()));
+			loaded.put(entry.getKey(), readStats(settings, entry.getKey(),
+					entry.getValue(), speedScale));
 		this.stats = Collections.unmodifiableMap(loaded);
 		this.formationGap = nonNegativeInt(settings, "formation.gap", 14);
 		this.curveEndY = fractionRange(settings, "pattern.curve.endY", 0.5, 0.8);
@@ -204,11 +206,13 @@ public final class EnemyBalance {
 	}
 
 	private static EnemyStats readStats(final Properties settings,
-			final String prefix, final EnemyStats fallback) {
+			final String prefix, final EnemyStats fallback,
+			final double speedScale) {
 		return new EnemyStats(
 				positiveInt(settings, prefix + ".health", fallback.health),
 				nonNegativeInt(settings, prefix + ".points", fallback.points),
-				positiveDouble(settings, prefix + ".speed", fallback.speed),
+				positiveDouble(settings, prefix + ".speed", fallback.speed)
+						* speedScale,
 				positiveInt(settings, prefix + ".formationSize", fallback.formationSize),
 				positiveInt(settings, prefix + ".fireInterval", fallback.fireInterval),
 				positiveDouble(settings, prefix + ".bulletSpeed", fallback.bulletSpeed),

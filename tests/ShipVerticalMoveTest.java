@@ -67,7 +67,7 @@ public final class ShipVerticalMoveTest {
         Ship ship = (Ship) get(screen, GameScreen.class, "ship");
         int startX = ship.getPositionX();
         int startY = ship.getPositionY();
-        int top = HEIGHT / 2;
+        int top = (int) (HEIGHT * 0.2); // default move.topLimit
 
         frames(screen, 1);
         check(ship.getPositionY() == startY, "No key, no vertical move");
@@ -76,7 +76,7 @@ public final class ShipVerticalMoveTest {
         frames(screen, 1);
         check(ship.getPositionY() == startY - ship.getSpeed(), "W moves up by the ship speed");
         frames(screen, 500);
-        check(ship.getPositionY() == top, "Ship stops exactly at the middle of the screen");
+        check(ship.getPositionY() == top, "Ship stops exactly at the default top limit");
         press(KeyEvent.VK_W, false);
 
         press(KeyEvent.VK_DOWN, true);
@@ -118,8 +118,8 @@ public final class ShipVerticalMoveTest {
         check(highestWith("0.25") == HEIGHT / 4, "move.topLimit=0.25 lets the ship reach a quarter from the top");
         check(highestWith("0") == 40, "move.topLimit=0 stops at the line under the score bar");
         check(highestWith("1") == startY, "move.topLimit=1 keeps the ship on its starting row");
-        check(highestWith("abc") == top, "An invalid value falls back to the middle");
-        check(highestWith("1.5") == top, "An out-of-range value falls back to the middle");
+        check(highestWith("abc") == top, "An invalid value falls back to the default");
+        check(highestWith("1.5") == top, "An out-of-range value falls back to the default");
 
         System.out.println("ShipVerticalMoveTest: " + checks + " checks passed");
     }

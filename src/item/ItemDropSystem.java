@@ -9,7 +9,8 @@ import java.util.Random;
 import item.ItemAPI.*;
 
 /**
- * Owns spawning, downward wandering, wall reflection, magnet attraction, swept contact and offscreen removal.
+ * Owns spawning, bouncing off all four walls, magnet attraction, swept contact and offscreen removal
+ * (bouncing movement: Team Entities).
  * No separate files, no Entity subclass, no inventory/effect changes, no game object references.
  * No event queue here. The manager receives spawn/expire/contact results and records them as events.
  */
@@ -20,11 +21,17 @@ class ItemDropSystem {
     private final Map<Long, DroppedItem> items = new LinkedHashMap<Long, DroppedItem>();
     private LevelRules rules;
     private long nextDropId = 1;
+    /** Upgrade catch-up state for the current stage (Team Entities). */
+    private double stageProgress = -1;
+    private int upgradeFloor;
+    private int catchUpKills;
 
     private static class DroppedItem {
         final long id;
         final ItemInfo info;
-        double x, y, velocityX, velocityY, directionMillis;
+        double x, y, velocityX, velocityY;
+        /** Time spent bouncing; past drop.bounceMillis the drop stops bouncing and leaves (Team Entities). */
+        double ageMillis;
         boolean magnetized;
 
         DroppedItem(long id, ItemInfo info, double x, double y) {
@@ -54,6 +61,51 @@ class ItemDropSystem {
     void beginLevel(LevelRules rules) {
         this.rules = ItemAPI.required(rules, "rules");
         items.clear();
+        stageProgress = -1;
+        upgradeFloor = 0;
+        catchUpKills = 0;
+    }
+
+    /** Part of the stage played, 0 to 1, or below 0 when unknown (no catch-up) (Team Entities). */
+    void setStageProgress(double progress) { stageProgress = progress; }
+
+    /** Upgrades the player should own in this stage; 0 turns catch-up off (Team Entities). */
+    void setUpgradeFloor(int floor) { upgradeFloor = Math.max(0, floor); }
+
+    /** Which kinds one roll may pick (Team Entities: upgrades and basic items roll apart). */
+    private enum Pool {
+        ANY, UPGRADES, BASIC;
+
+        boolean takes(boolean upgrade) { return this == ANY || (this == UPGRADES) == upgrade; }
+    }
+
+    /**
+     * Catch-up (Team Entities): past balance.catchUpCheckAt of the stage the player still has fewer
+     * upgrades than the floor. Counts owned stacks plus upgrade drops still on the field, so a drop that
+     * flew away keeps the catch-up going but one still bouncing does not make it drop more.
+     */
+    private boolean behindFloor(int upgrades) {
+        return stageProgress >= balance.catchUpCheckAt && upgrades < upgradeFloor;
+    }
+
+    /** Upgrade drops still on the field, not caught yet. */
+    private int upgradesOnField() {
+        int count = 0;
+        for (DroppedItem item : items.values()) if (item.info.effectKind.isRunUpgrade()) count++;
+        return count;
+    }
+
+    /** Lowest upgrade chance while behind: catchUpStart plus catchUpStep per kill since, 1 from catchUpForceAt. */
+    private double catchUpChance() {
+        if (stageProgress >= balance.catchUpForceAt) return 1;
+        return Math.min(1, balance.catchUpStart + balance.catchUpStep * catchUpKills);
+    }
+
+    /** Upgrade stacks the player owns; only run-wide upgrades have stacks. */
+    private static int ownedUpgrades(Map<String, Integer> stacks) {
+        int owned = 0;
+        for (Integer count : stacks.values()) if (count != null) owned += Math.max(0, count);
+        return owned;
     }
 
     /**
@@ -66,6 +118,65 @@ class ItemDropSystem {
      * No drop (null) when every candidate is removed.
      */
     DropView spawn(DropSource source, double cx, double cy, Map<String, Integer> stacks) {
+        DropRule rule = checkSpawn(source, cx, cy, stacks);
+        if (!roll(rule.probability)) return null;
+        return place(rule, Pool.ANY, cx, cy, stacks, ownedUpgrades(stacks));
+    }
+
+    /**
+     * All drops for one defeated enemy (Team Entities). With drop.upgrade.probability set, a regular
+     * enemy rolls twice: basic items (life, shield, freeze, boost, score boost) at the rule's probability,
+     * and upgrades (spread, bullet power) at drop.upgrade.probability times how far their weights have
+     * decayed, raised by the catch-up while the player is behind the stage's floor. So one kill may drop
+     * up to two items. Otherwise one roll, as spawn().
+     */
+    List<DropView> spawnAll(DropSource source, double cx, double cy, Map<String, Integer> stacks) {
+        DropRule rule = checkSpawn(source, cx, cy, stacks);
+        List<DropView> spawned = new ArrayList<DropView>();
+        if (balance.upgradeDropProbability == null || source != DropSource.REGULAR_ENEMY) {
+            DropView drop = spawn(source, cx, cy, stacks);
+            if (drop != null) spawned.add(drop);
+            return spawned;
+        }
+        int owned = ownedUpgrades(stacks);
+        // Upgrade chance shrinks with the decayed share of the upgrade weights.
+        double base = 0, decayed = 0;
+        for (Map.Entry<String, Double> entry : rule.weights.entrySet()) {
+            if (!isUpgrade(entry.getKey())) continue;
+            base += Math.max(0, entry.getValue());
+            decayed += effectiveWeight(rule, entry.getKey(), entry.getValue(), stacks, owned);
+        }
+        double upgradeChance = base <= 0 ? 0 : balance.upgradeDropProbability * decayed / base;
+        // A zero decayed weight means every upgrade is maxed: nothing left to catch up on.
+        // Upgrade drops still on the field count too, so the catch-up never piles them up.
+        if (decayed > 0 && behindFloor(owned + upgradesOnField())) {
+            upgradeChance = Math.max(upgradeChance, catchUpChance());
+            catchUpKills++;
+        }
+        if (roll(upgradeChance)) {
+            DropView drop = place(rule, Pool.UPGRADES, cx, cy, stacks, owned);
+            if (drop != null) spawned.add(drop);
+        }
+        if (roll(rule.probability)) {
+            DropView drop = place(rule, Pool.BASIC, cx, cy, stacks, owned);
+            if (drop != null) spawned.add(drop);
+        }
+        return spawned;
+    }
+
+    /** Upgrades stack for the run (EffectKind.isRunUpgrade); every other kind is a basic item. */
+    private boolean isUpgrade(String itemId) {
+        ItemInfo info = definitions.find(itemId);
+        return info != null && info.effectKind.isRunUpgrade();
+    }
+
+    /** p==0/1 consumes no random number. */
+    private boolean roll(double probability) {
+        if (probability <= 0) return false;
+        return probability >= 1 || random.nextDouble() < probability;
+    }
+
+    private DropRule checkSpawn(DropSource source, double cx, double cy, Map<String, Integer> stacks) {
         requireActive();
         ItemAPI.required(source, "source");
         ItemAPI.finite(cx, "cx");
@@ -73,14 +184,18 @@ class ItemDropSystem {
         ItemAPI.required(stacks, "stacks");
         DropRule rule = rules.dropRules.get(source);
         if (rule == null) throw new IllegalStateException("missing drop rule: " + source);
-        if (rule.probability == 0) return null;
-        if (rule.probability < 1 && random.nextDouble() >= rule.probability) return null;
+        return rule;
+    }
 
+    /** Picks a kind from the pool by weight and registers the drop. */
+    private DropView place(DropRule rule, Pool pool, double cx, double cy, Map<String, Integer> stacks,
+                           int ownedUpgrades) {
         Map<String, Double> weights = new LinkedHashMap<String, Double>();
         double total = 0;
         String selected = null;
         for (Map.Entry<String, Double> entry : rule.weights.entrySet()) {
-            double weight = effectiveWeight(rule, entry.getKey(), entry.getValue(), stacks);
+            if (!pool.takes(isUpgrade(entry.getKey()))) continue;
+            double weight = effectiveWeight(rule, entry.getKey(), entry.getValue(), stacks, ownedUpgrades);
             if (weight > 0) {
                 weights.put(entry.getKey(), weight);
                 total += weight;
@@ -114,14 +229,24 @@ class ItemDropSystem {
     }
 
     /**
-     * Advances game time only (no wall clock). Splits wandering paths at every turn, wall,
-     * bottom and magnet-range entry, so contact tests follow the actual path.
+     * Advances game time only (no wall clock). Splits paths at every wall bounce and magnet-range
+     * entry, so contact tests follow the actual path.
+     * Drops fly in a straight line and bounce off all four walls of the play area for
+     * drop.bounceMillis; after that they stop bouncing and are removed once fully outside it.
      * Contact before an offscreen exit wins; the manager then decides pickup/conversion.
      * Uncollectable ordinary drops keep moving and expire on a later update if necessary.
      */
     Frame advance(long delta, PlayerSnapshot player) { return advance(delta, player, false); }
 
     Frame advance(long delta, PlayerSnapshot player, boolean magnetEquipped) {
+        return advance(delta, player, magnetEquipped, false);
+    }
+
+    /**
+     * gather: the level is over, so every drop flies straight to the player at drop.gatherSpeed,
+     * whatever its distance (Team Entities).
+     */
+    Frame advance(long delta, PlayerSnapshot player, boolean magnetEquipped, boolean gather) {
         requireActive();
         if (delta < 0) throw new IllegalArgumentException("negative delta");
         ItemAPI.required(player, "player");
@@ -130,10 +255,10 @@ class ItemDropSystem {
         Iterator<DroppedItem> iterator = items.values().iterator();
         while (iterator.hasNext()) {
             DroppedItem item = iterator.next();
-            DropView contact = item.y >= rules.floorY ? null : move(item, delta, player, magnetEquipped);
+            DropView contact = outside(item) ? null : move(item, delta, player, magnetEquipped, gather);
             if (contact != null) {
                 contacts.add(contact);
-            } else if (item.y >= rules.floorY) {
+            } else if (outside(item)) {
                 iterator.remove();
                 expired.add(item.view(rules));
             }
@@ -141,28 +266,53 @@ class ItemDropSystem {
         return new Frame(expired, contacts);
     }
 
+    /**
+     * Random direction with both parts at least about a third of the speed, so a drop never
+     * slides along one wall. An axis with no room (area exactly one drop wide/high) gets no speed.
+     */
     private void chooseDirection(DroppedItem item) {
-        item.velocityX = (random.nextBoolean() ? 1 : -1)
-            * balance.horizontalSpeed * (0.5 + random.nextDouble() * 0.5);
-        item.velocityY = rules.fallSpeed * (0.75 + random.nextDouble() * 0.5);
-        item.directionMillis = balance.directionChangeMillis;
+        double speed = balance.bounceSpeed * (0.85 + random.nextDouble() * 0.3);
+        double angle = Math.toRadians(20 + random.nextDouble() * 50);
+        item.velocityX = (random.nextBoolean() ? 1 : -1) * speed * Math.cos(angle);
+        item.velocityY = (random.nextBoolean() ? 1 : -1) * speed * Math.sin(angle);
+        if (rules.right - rules.pickupWidth <= rules.left) item.velocityX = 0;
+        if (rules.floorY - rules.pickupHeight <= rules.top) item.velocityY = 0;
+        if (item.velocityX == 0 && item.velocityY == 0) item.velocityY = speed;
+        item.ageMillis = 0;
     }
 
-    private DropView move(DroppedItem item, long delta, PlayerSnapshot player, boolean magnetEquipped) {
-        boolean attract = magnetEquipped && player.canPickup;
+    /** Fully outside the play area. Only possible after the bouncing time ends. */
+    private boolean outside(DroppedItem item) {
+        return item.x + rules.pickupWidth <= rules.left || item.x >= rules.right
+            || item.y + rules.pickupHeight <= rules.top || item.y >= rules.floorY;
+    }
+
+    /** Milliseconds until a wall along one axis, or infinity when moving away from walls/no room. */
+    private static double wallMillis(double position, double velocity, double low, double high) {
+        if (velocity == 0 || high <= low) return Double.POSITIVE_INFINITY;
+        double wall = velocity > 0 ? high : low;
+        return Math.max(0, (wall - position) / velocity * 1000);
+    }
+
+    private DropView move(DroppedItem item, long delta, PlayerSnapshot player,
+                          boolean magnetEquipped, boolean gather) {
+        boolean attract = (magnetEquipped || gather) && player.canPickup;
+        double pullSpeed = gather ? Math.max(balance.gatherSpeed, balance.magnetSpeed) : balance.magnetSpeed;
+        if (attract && gather) item.magnetized = true;
         double targetX = player.bounds.x + player.bounds.width / 2 - rules.pickupWidth / 2;
         double targetY = player.bounds.y + player.bounds.height / 2 - rules.pickupHeight / 2;
         if (attract && Math.hypot(item.x - targetX, item.y - targetY) <= balance.magnetRange)
             item.magnetized = true;
         DropView contact = player.canPickup ? contactAlong(item, 0, 0, player.bounds) : null;
+        double right = rules.right - rules.pickupWidth, bottom = rules.floorY - rules.pickupHeight;
         double remaining = delta;
-        while (remaining > 0 && item.y < rules.floorY) {
+        while (remaining > 0 && !outside(item)) {
             if (attract && item.magnetized) {
                 double dx = targetX - item.x, dy = targetY - item.y;
                 double distance = Math.hypot(dx, dy);
                 // Stop at the player rather than overshooting and oscillating on long frames.
                 double fraction = distance == 0 ? 0
-                    : Math.min(1, balance.magnetSpeed * (remaining / 1000.0) / distance);
+                    : Math.min(1, pullSpeed * (remaining / 1000.0) / distance);
                 dx *= fraction;
                 dy *= fraction;
                 if (contact == null) contact = contactAlong(item, dx, dy, player.bounds);
@@ -171,17 +321,12 @@ class ItemDropSystem {
                 break;
             }
 
-            if (item.directionMillis <= 0) chooseDirection(item);
-            double right = rules.right - rules.pickupWidth;
-            if (item.x <= rules.left) item.velocityX = Math.abs(item.velocityX);
-            if (item.x >= right) item.velocityX = -Math.abs(item.velocityX);
-            // A play area exactly one item wide has no horizontal room.
-            double vx = right == rules.left ? 0 : item.velocityX;
-            double wallMillis = vx == 0 ? Double.POSITIVE_INFINITY
-                : ((vx > 0 ? right : rules.left) - item.x) / vx * 1000;
-            double bottomMillis = (rules.floorY - item.y) / item.velocityY * 1000;
-            double step = Math.min(remaining, Math.min(item.directionMillis, Math.min(wallMillis, bottomMillis)));
-            double dx = vx * (step / 1000.0), dy = item.velocityY * (step / 1000.0);
+            boolean bouncing = item.ageMillis < balance.bounceMillis;
+            double wallX = bouncing ? wallMillis(item.x, item.velocityX, rules.left, right) : Double.POSITIVE_INFINITY;
+            double wallY = bouncing ? wallMillis(item.y, item.velocityY, rules.top, bottom) : Double.POSITIVE_INFINITY;
+            double bounceLeft = bouncing ? balance.bounceMillis - item.ageMillis : Double.POSITIVE_INFINITY;
+            double step = Math.min(remaining, Math.min(bounceLeft, Math.min(wallX, wallY)));
+            double dx = item.velocityX * (step / 1000.0), dy = item.velocityY * (step / 1000.0);
             double entry = attract && !item.magnetized
                 ? rangeEntry(item.x - targetX, item.y - targetY, dx, dy, balance.magnetRange)
                 : Double.POSITIVE_INFINITY;
@@ -192,21 +337,25 @@ class ItemDropSystem {
                 dy *= entry;
             }
             if (contact == null && player.canPickup) contact = contactAlong(item, dx, dy, player.bounds);
-            item.x = Math.max(rules.left, Math.min(right, item.x + dx));
+            item.x += dx;
             item.y += dy;
             remaining = Math.max(0, remaining - step);
-            item.directionMillis = Math.max(0, item.directionMillis - step);
+            item.ageMillis = step == bounceLeft ? balance.bounceMillis : item.ageMillis + step;
             if (captured) {
                 item.magnetized = true;
                 // Range entry may coincide with contact at the segment endpoint.
                 DropView attractedContact = contactAlong(item, 0, 0, player.bounds);
                 if (attractedContact != null) contact = attractedContact;
             } else {
-                if (step == wallMillis) {
-                    item.x = vx > 0 ? right : rules.left;
+                // Bounce: snap to the wall and turn back along that axis.
+                if (step == wallX) {
+                    item.x = item.velocityX > 0 ? right : rules.left;
                     item.velocityX = -item.velocityX;
                 }
-                if (step == bottomMillis) item.y = rules.floorY;
+                if (step == wallY) {
+                    item.y = item.velocityY > 0 ? bottom : rules.top;
+                    item.velocityY = -item.velocityY;
+                }
             }
         }
         return contact;
@@ -268,13 +417,20 @@ class ItemDropSystem {
         rules = null;
     }
 
-    private double effectiveWeight(DropRule rule, String itemId, double weight, Map<String, Integer> stacks) {
+    /**
+     * Weight after stacking. An item at max stacks never drops. The decay counts the item's own stacks,
+     * or with drop.upgradeDecay.shared the stacks of every upgrade together, so the first one or two
+     * upgrades come easily and later ones get rare (Team Entities). ownedUpgrades is the sum of all
+     * stacks, counted once per kill by the caller.
+     */
+    private double effectiveWeight(DropRule rule, String itemId, double weight, Map<String, Integer> stacks,
+                                   int ownedUpgrades) {
         if (weight <= 0) return 0;
         Integer count = stacks.get(itemId);
-        if (count == null || count <= 0) return weight;
         ItemInfo info = definitions.find(itemId);
-        if (info != null && info.maxStacks != null && count >= info.maxStacks) return 0;
-        return rule.weightFor(itemId, weight, count);
+        if (count != null && info != null && info.maxStacks != null && count >= info.maxStacks) return 0;
+        int decayCount = balance.sharedUpgradeDecay ? ownedUpgrades : count == null ? 0 : count;
+        return decayCount <= 0 ? weight : rule.weightFor(itemId, weight, decayCount);
     }
 
     /** Internal result. A plain value object with no movement/contact logic. */

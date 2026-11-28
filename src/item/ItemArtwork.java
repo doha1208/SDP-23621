@@ -14,17 +14,15 @@ public final class ItemArtwork {
     static {
         mask(EffectKind.LIFE, ".##...##.", "####.####", "#########", "#########", ".#######.", "..#####..", "...###...", "....#....", ".........");
         mask(EffectKind.SHIELD, ".#######.", "#########", "##.....##", "##.....##", "##..#..##", ".##.#.##.", "..#####..", "...###...", "....#....");
-        mask(EffectKind.RAPID_FIRE, ".#..#..#.", "###.#####", "###.#####", ".#..#..#.", ".........", ".#..#..#.", ".#..#..#.", ".........", ".#..#..#.");
-        mask(EffectKind.BULLET_SPEED, "....##...", "...##....", "..##.....", ".#######.", "....###..", "...###...", "..###....", ".##......", ".#.......");
         mask(EffectKind.SPREAD, "#...#...#", ".#..#..#.", "..#.#.#..", "...###...", "....#....", "....#....", "...###...", "...###...", ".........");
-        mask(EffectKind.PIERCE, "....#....", "...###...", "..#####..", "....#....", "#########", "....#....", "#########", "....#....", "....#....");
         mask(EffectKind.FREEZE, "#...#...#", ".#..#..#.", "..#.#.#..", "...###...", "#########", "...###...", "..#.#.#..", ".#..#..#.", "#...#...#");
         mask(EffectKind.BOOST, "....#....", "...##....", "..###.#..", "..#####..", ".#######.", ".##...##.", ".##.#.##.", "..##.##..", "...###...");
         mask(EffectKind.SCORE_BOOST, "....#....", "...###...", ".#######.", "..#####..", "...###...", "..##.##..", ".##...##.", ".........", "..#####..");
         mask(EffectKind.EXTRA_SLOTS, ".........", ".###.###.", ".#.#.#.#.", ".###.###.", ".........", "...###...", "....#....", "...###...", ".........");
         mask(EffectKind.MAGNET, ".##...##.", ".##...##.", ".##...##.", ".##...##.", ".##...##.", ".###.###.", "..#####..", "...###...", ".........");
         mask(EffectKind.MAX_LIFE, ".##...##.", "####.####", "#########", ".#######.", "..#####..", "...###...", "....#....", ".......#.", "......###");
-        mask(EffectKind.LONG_LASTING, ".#######.", "..#...#..", "...#.#...", "....#....", "....#....", "...#.#...", "..#####..", ".#######.", ".........");
+        mask(EffectKind.BULLET_POWER, "....#....", "...###...", "..#####..", "#.#####.#", "#.#####.#", "..#####..", "..#####..", ".#..#..#.", "#...#...#");
+        mask(EffectKind.LONG_LASTING,".#######.", "..#...#..", "...#.#...", "....#....", "....#....", "...#.#...", "..#####..", ".#######.", ".........");
     }
 
     private ItemArtwork() { }
@@ -69,9 +67,12 @@ public final class ItemArtwork {
             g.fillRect(0, 42, width, 18);
             g.setFont(font.deriveFont(9f));
             int x = 5;
-            for (int i = 0; i < view.slots.size(); i++) {
+            // Team Entities: with auto-use pickups the slots stay empty, so empty slots are not drawn.
+            boolean anyStored = false;
+            for (ItemInfo stored : view.slots) anyStored |= stored != null;
+            for (int i = 0; anyStored && i < view.slots.size(); i++) {
                 g.setColor(new Color(167, 185, 204));
-                g.drawString(Integer.toString(i + 1), x, 55);
+                g.drawString(engine.ControlKeys.itemSlotLabel(i), x, 55);
                 if (view.slots.get(i) == null) {
                     g.setColor(new Color(54, 68, 86));
                     g.drawRect(x + 9, 44, 14, 14);
@@ -124,10 +125,8 @@ public final class ItemArtwork {
             case FREEZE: return "Stop enemy movement / " + time;
             case BOOST: return "+" + percent(item.magnitude) + "% move + fire / " + time;
             case SCORE_BOOST: return "Score x" + number(item.magnitude) + " / " + time;
-            case RAPID_FIRE: return "Faster fire / " + stack(item, effect);
-            case BULLET_SPEED: return "Faster bullets / " + stack(item, effect);
-            case SPREAD: return "More bullet lanes / " + stack(item, effect);
-            case PIERCE: return "Pass through more enemies / " + stack(item, effect);
+            case SPREAD: return "More shot directions / " + stack(item, effect);
+            case BULLET_POWER: return "Faster fire + pierce / " + stack(item, effect);
             default: return item.description;
         }
     }

@@ -43,10 +43,8 @@ public final class ItemSounds {
                 return Sound.ITEM_SCORE_BOOST;
             case "life":
                 return Sound.ITEM_LIFE;
-            case "rapid_fire":
+            case "bullet_power": // faster fire + pierce (Team Entities, replaced rapid fire)
                 return Sound.ITEM_RAPID_FIRE;
-            case "bullet_speed":
-                return Sound.ITEM_BULLET_SPEED;
             default:
                 return null;
         }

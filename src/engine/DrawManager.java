@@ -365,7 +365,7 @@ public final class DrawManager {
 				AlphaComposite.SRC_OVER, alpha));
 
 		// If the entity is a Bullet fired by the PLAYER (speed < 0), stretch its sprite to match its actual dimensions.
-		if (entity instanceof entity.Bullet && ((entity.Bullet) entity).getSpeed() < 0) {
+		if (entity instanceof entity.Bullet && ((entity.Bullet) entity).isPlayerShot()) {
 			boolean[][] image = spriteMap.get(entity.getSpriteType());
 			if (image != null && image.length > 0) {
 				// Calculate how much to stretch each pixel of the sprite
@@ -389,9 +389,33 @@ public final class DrawManager {
 			// For all other entities (ships, enemies, and ENEMY bullets), use the standard 2x pixel drawing
 			drawSprite(entity.getSpriteType(), positionX, positionY,
 					entity.getColor());
+			if (entity.getSpriteType() == SpriteType.ShipDestroyed)
+				drawSpriteMirroredBelow(SpriteType.ShipDestroyed, positionX,
+						positionY, entity.getColor());
 		}
 
 		g2d.setComposite(AlphaComposite.SrcOver); // back to normal
+	}
+
+	/**
+	 * Draws a sprite upside down just below the given top (Team Entities):
+	 * the player wreck bursts both ways instead of lying on a floor.
+	 *
+	 * @param spriteType Sprite to draw.
+	 * @param positionX Left side of the image.
+	 * @param positionY Top of the original image; the copy starts below it.
+	 * @param color Color used for filled pixels.
+	 */
+	private void drawSpriteMirroredBelow(final SpriteType spriteType,
+			final int positionX, final int positionY, final Color color) {
+		boolean[][] image = spriteMap.get(spriteType);
+		int rows = image[0].length;
+		backBufferGraphics.setColor(color);
+		for (int i = 0; i < image.length; i++)
+			for (int j = 0; j < rows; j++)
+				if (image[i][j])
+					backBufferGraphics.drawRect(positionX + i * 2,
+							positionY + (rows * 2 - 1 - j) * 2, 1, 1);
 	}
 
 	/**
@@ -543,9 +567,9 @@ public final class DrawManager {
 
 	/**
 	 * Draws the item panel right below the HUD line (Team CS - Item System):
-	 * inventory slots on the left, each with the number key that uses it,
+	 * inventory slots on the left, each with the key that uses it (Z, X, C),
 	 * and running effects on the right with stacks or seconds left. The
-	 * latest item notice is shown above the player ship.
+	 * item notice panel is no longer drawn (Team Entities).
 	 *
 	 * @param screen
 	 *            Screen to draw on.
@@ -554,8 +578,6 @@ public final class DrawManager {
 	 */
 	public void drawItemHud(final Screen screen, final ItemSystem items) {
 		ItemArtwork.drawHud(backBufferGraphics, items.api().getView(), screen.getWidth(), fontRegular);
-		items.drawNotice(backBufferGraphics, screen.getWidth(), screen.getHeight(),
-				fontRegular.deriveFont(10f));
 	}
 
 	/**
@@ -572,7 +594,10 @@ public final class DrawManager {
 		backBufferGraphics.setColor(Color.GRAY);
 		drawCenteredRegularString(screen, "Catch item drops with your ship",
 				screen.getHeight() * 2 / 3);
-		drawCenteredRegularString(screen, "Keys 1-" + slots
+		// Team Entities: picked-up items start at once unless pickup.autoUse=false.
+		drawCenteredRegularString(screen, items.autoUse()
+				? "They work the moment you catch them"
+				: ControlKeys.itemSlotLabel(0) + "-" + ControlKeys.itemSlotLabel(slots - 1)
 				+ " use stored items", screen.getHeight() * 2 / 3
 				+ fontRegularMetrics.getHeight());
 		ItemAPI.ItemInfo equipped = items.equippedThisRun();
@@ -1223,11 +1248,24 @@ public final class DrawManager {
 										final Achievement achievement, final long elapsedMilliseconds,
 										final int durationMilliseconds, final int slideInMilliseconds,
 										final int slideOutMilliseconds) {
-		int boxWidth = 218;
-		int boxHeight = 44;
+		// Compact box in the small font, below the item bar and boss health
+		// bar. The game screen draws it behind the ship, enemies and bullets
+		// (Team Entities).
+		final String title = "ACHIEVEMENT UNLOCKED";
+		final int pad = 4;
+		boolean bigIcon = achievement.getSpriteType() == SpriteType.FleetMaster;
+		boolean[][] icon = spriteMap.get(achievement.getSpriteType());
+		int iconScale = bigIcon ? 1 : 2;
+		int iconWidth = icon.length * iconScale;
+		int iconHeight = icon[0].length * iconScale;
+		int line = getSmallLineHeight();
+		int textWidth = Math.max(getSmallStringWidth(title),
+				getSmallStringWidth(achievement.getName()));
+		int boxWidth = pad + iconWidth + pad + textWidth + pad;
+		int boxHeight = Math.max(iconHeight, line * 2) + pad * 2;
 		int visibleX = screen.getWidth() - boxWidth - 6;
 		int hiddenX = screen.getWidth() + 2;
-		int boxY = 46;
+		int boxY = 80;
 		int boxX = visibleX;
 
 		if (elapsedMilliseconds < slideInMilliseconds)
@@ -1243,25 +1281,18 @@ public final class DrawManager {
 		backBufferGraphics.fillRect(boxX, boxY, boxWidth, boxHeight);
 		backBufferGraphics.setColor(Color.GREEN);
 		backBufferGraphics.drawRect(boxX, boxY, boxWidth, boxHeight);
-		backBufferGraphics.setColor(Color.GREEN);
-		backBufferGraphics.drawString("ACHIEVEMENT UNLOCKED", boxX + 34,
-				boxY + 16);
-		if (achievement.getSpriteType() == SpriteType.FleetMaster) {
-			drawSmallSprite(
-					achievement.getSpriteType(),
-					boxX + 8,
-					boxY + (boxHeight - 23) / 2,
+		int iconY = boxY + (boxHeight - iconHeight) / 2;
+		if (bigIcon)
+			drawSmallSprite(achievement.getSpriteType(), boxX + pad, iconY,
 					Color.WHITE);
-		} else {
-			drawSprite(
-					achievement.getSpriteType(),
-					boxX + 8,
-					boxY + 20,
+		else
+			drawSprite(achievement.getSpriteType(), boxX + pad, iconY,
 					achievement.getIconColor());
-		}
-		backBufferGraphics.setColor(Color.WHITE);
-		backBufferGraphics.drawString(achievement.getName(), boxX + 34,
-				boxY + 35);
+		int textX = boxX + pad + iconWidth + pad;
+		int textTop = boxY + (boxHeight - line * 2) / 2;
+		drawSmallString(title, textX, textTop + line - 3, Color.GREEN);
+		drawSmallString(achievement.getName(), textX, textTop + line * 2 - 3,
+				Color.WHITE);
 	}
 
 	/**
@@ -1625,6 +1656,31 @@ public final class DrawManager {
 	}
 
 	/**
+	 * Short banner shown for a moment before a level starts (Team
+	 * Entities): the level name in small letters over a big "START!".
+	 * Replaces the old 3-2-1 countdown, which stays in drawCountDown.
+	 *
+	 * @param screen
+	 *            Screen to draw on.
+	 * @param level
+	 *            Level about to start.
+	 * @param bonusLife
+	 *            Whether this level gives a bonus life.
+	 */
+	public void drawStartBanner(final Screen screen, final int level,
+			final boolean bonusLife) {
+		int rectHeight = screen.getHeight() / 6;
+		int middle = screen.getHeight() / 2;
+		backBufferGraphics.setColor(Color.BLACK);
+		backBufferGraphics.fillRect(0, middle - rectHeight / 2,
+				screen.getWidth(), rectHeight);
+		backBufferGraphics.setColor(Color.GREEN);
+		drawCenteredRegularString(screen, "Level " + level
+				+ (bonusLife ? " - Bonus life!" : ""), middle - 14);
+		drawCenteredBigString(screen, "START!", middle + 24);
+	}
+
+	/**
 	 * Countdown to game start.
 	 *
 	 * @param screen
@@ -1741,7 +1797,8 @@ public final class DrawManager {
 		if (bullet != null)
 			BulletTrail.draw(backBufferGraphics, bullet.getPositionX(),
 					bullet.getPositionY(), bullet.getWidth(),
-					bullet.getHeight());
+					bullet.getHeight(), bullet instanceof entity.Bullet
+							&& ((entity.Bullet) bullet).getSpeed() > 0);
 	}
 
 	/**
