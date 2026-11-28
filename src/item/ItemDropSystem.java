@@ -72,23 +72,31 @@ class ItemDropSystem {
     /** Upgrades the player should own in this stage; 0 turns catch-up off (Team Entities). */
     void setUpgradeFloor(int floor) { upgradeFloor = Math.max(0, floor); }
 
-    /**
-     * Upgrade chance with catch-up (Team Entities): once balance.catchUpCheckAt of the stage has passed
-     * and the player owns fewer upgrades than the floor, at least catchUpStart plus catchUpStep for every
-     * kill since, and certain from catchUpForceAt. Counts owned stacks, so a missed drop keeps helping.
-     */
-    private double withCatchUp(double chance, Map<String, Integer> stacks) {
-        if (chance <= 0 || stageProgress < balance.catchUpCheckAt || ownedUpgrades(stacks) >= upgradeFloor)
-            return chance;
-        if (stageProgress >= balance.catchUpForceAt) return 1;
-        return Math.max(chance, Math.min(1, balance.catchUpStart + balance.catchUpStep * catchUpKills++));
+    /** Which kinds one roll may pick (Team Entities: upgrades and basic items roll apart). */
+    private enum Pool {
+        ANY, UPGRADES, BASIC;
+
+        boolean takes(boolean upgrade) { return this == ANY || (this == UPGRADES) == upgrade; }
     }
 
-    private int ownedUpgrades(Map<String, Integer> stacks) {
+    /**
+     * Catch-up (Team Entities): past balance.catchUpCheckAt of the stage the player still owns fewer
+     * upgrades than the floor. Counts owned stacks, so a drop that flew away keeps the catch-up going.
+     */
+    private boolean behindFloor(int ownedUpgrades) {
+        return stageProgress >= balance.catchUpCheckAt && ownedUpgrades < upgradeFloor;
+    }
+
+    /** Lowest upgrade chance while behind: catchUpStart plus catchUpStep per kill since, 1 from catchUpForceAt. */
+    private double catchUpChance() {
+        if (stageProgress >= balance.catchUpForceAt) return 1;
+        return Math.min(1, balance.catchUpStart + balance.catchUpStep * catchUpKills);
+    }
+
+    /** Upgrade stacks the player owns; only run-wide upgrades have stacks. */
+    private static int ownedUpgrades(Map<String, Integer> stacks) {
         int owned = 0;
-        if (stacks != null)
-            for (Map.Entry<String, Integer> entry : stacks.entrySet())
-                if (isUpgrade(entry.getKey()) && entry.getValue() != null) owned += entry.getValue();
+        for (Integer count : stacks.values()) if (count != null) owned += Math.max(0, count);
         return owned;
     }
 
@@ -104,14 +112,15 @@ class ItemDropSystem {
     DropView spawn(DropSource source, double cx, double cy, Map<String, Integer> stacks) {
         DropRule rule = checkSpawn(source, cx, cy, stacks);
         if (!roll(rule.probability)) return null;
-        return place(rule, null, cx, cy, stacks);
+        return place(rule, Pool.ANY, cx, cy, stacks, ownedUpgrades(stacks));
     }
 
     /**
      * All drops for one defeated enemy (Team Entities). With drop.upgrade.probability set, a regular
      * enemy rolls twice: basic items (life, shield, freeze, boost, score boost) at the rule's probability,
-     * and upgrades (rapid fire, bullet speed, spread, pierce) at drop.upgrade.probability times how far
-     * their weights have decayed. So one kill may drop up to two items. Otherwise one roll, as spawn().
+     * and upgrades (spread, bullet power) at drop.upgrade.probability times how far their weights have
+     * decayed, raised by the catch-up while the player is behind the stage's floor. So one kill may drop
+     * up to two items. Otherwise one roll, as spawn().
      */
     List<DropView> spawnAll(DropSource source, double cx, double cy, Map<String, Integer> stacks) {
         DropRule rule = checkSpawn(source, cx, cy, stacks);
@@ -121,22 +130,26 @@ class ItemDropSystem {
             if (drop != null) spawned.add(drop);
             return spawned;
         }
+        int owned = ownedUpgrades(stacks);
         // Upgrade chance shrinks with the decayed share of the upgrade weights.
         double base = 0, decayed = 0;
         for (Map.Entry<String, Double> entry : rule.weights.entrySet()) {
             if (!isUpgrade(entry.getKey())) continue;
             base += Math.max(0, entry.getValue());
-            decayed += effectiveWeight(rule, entry.getKey(), entry.getValue(), stacks);
+            decayed += effectiveWeight(rule, entry.getKey(), entry.getValue(), stacks, owned);
         }
         double upgradeChance = base <= 0 ? 0 : balance.upgradeDropProbability * decayed / base;
         // A zero decayed weight means every upgrade is maxed: nothing left to catch up on.
-        upgradeChance = decayed <= 0 ? 0 : withCatchUp(upgradeChance, stacks);
+        if (decayed > 0 && behindFloor(owned)) {
+            upgradeChance = Math.max(upgradeChance, catchUpChance());
+            catchUpKills++;
+        }
         if (roll(upgradeChance)) {
-            DropView drop = place(rule, Boolean.TRUE, cx, cy, stacks);
+            DropView drop = place(rule, Pool.UPGRADES, cx, cy, stacks, owned);
             if (drop != null) spawned.add(drop);
         }
         if (roll(rule.probability)) {
-            DropView drop = place(rule, Boolean.FALSE, cx, cy, stacks);
+            DropView drop = place(rule, Pool.BASIC, cx, cy, stacks, owned);
             if (drop != null) spawned.add(drop);
         }
         return spawned;
@@ -165,14 +178,15 @@ class ItemDropSystem {
         return rule;
     }
 
-    /** Picks a kind by weight (upgrades only, basic only, or any when null) and registers the drop. */
-    private DropView place(DropRule rule, Boolean upgrades, double cx, double cy, Map<String, Integer> stacks) {
+    /** Picks a kind from the pool by weight and registers the drop. */
+    private DropView place(DropRule rule, Pool pool, double cx, double cy, Map<String, Integer> stacks,
+                           int ownedUpgrades) {
         Map<String, Double> weights = new LinkedHashMap<String, Double>();
         double total = 0;
         String selected = null;
         for (Map.Entry<String, Double> entry : rule.weights.entrySet()) {
-            if (upgrades != null && isUpgrade(entry.getKey()) != upgrades) continue;
-            double weight = effectiveWeight(rule, entry.getKey(), entry.getValue(), stacks);
+            if (!pool.takes(isUpgrade(entry.getKey()))) continue;
+            double weight = effectiveWeight(rule, entry.getKey(), entry.getValue(), stacks, ownedUpgrades);
             if (weight > 0) {
                 weights.put(entry.getKey(), weight);
                 total += weight;
@@ -397,18 +411,16 @@ class ItemDropSystem {
     /**
      * Weight after stacking. An item at max stacks never drops. The decay counts the item's own stacks,
      * or with drop.upgradeDecay.shared the stacks of every upgrade together, so the first one or two
-     * upgrades come easily and later ones get rare (Team Entities).
+     * upgrades come easily and later ones get rare (Team Entities). ownedUpgrades is the sum of all
+     * stacks, counted once per kill by the caller.
      */
-    private double effectiveWeight(DropRule rule, String itemId, double weight, Map<String, Integer> stacks) {
+    private double effectiveWeight(DropRule rule, String itemId, double weight, Map<String, Integer> stacks,
+                                   int ownedUpgrades) {
         if (weight <= 0) return 0;
         Integer count = stacks.get(itemId);
         ItemInfo info = definitions.find(itemId);
         if (count != null && info != null && info.maxStacks != null && count >= info.maxStacks) return 0;
-        int decayCount = count == null ? 0 : count;
-        if (balance.sharedUpgradeDecay) {
-            decayCount = 0;
-            for (int stack : stacks.values()) decayCount += Math.max(0, stack);
-        }
+        int decayCount = balance.sharedUpgradeDecay ? ownedUpgrades : count == null ? 0 : count;
         return decayCount <= 0 ? weight : rule.weightFor(itemId, weight, decayCount);
     }
 
