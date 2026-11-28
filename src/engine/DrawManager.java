@@ -1797,7 +1797,8 @@ public final class DrawManager {
 		if (bullet != null)
 			BulletTrail.draw(backBufferGraphics, bullet.getPositionX(),
 					bullet.getPositionY(), bullet.getWidth(),
-					bullet.getHeight());
+					bullet.getHeight(), bullet instanceof entity.Bullet
+							&& ((entity.Bullet) bullet).getSpeed() > 0);
 	}
 
 	/**

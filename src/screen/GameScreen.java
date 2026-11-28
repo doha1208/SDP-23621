@@ -1034,7 +1034,8 @@ public class GameScreen extends Screen {
 			drawManager.drawItemDrops(this.items); // Item System (Team CS)
 			for (Bullet bullet : this.bullets) {
 				// Comet trail, player bullets only. AUTHORED BY: VFX TEAM (Effection)
-				if (this.cometTrailOn && bullet.getSpeed() < 0)
+				// isPlayerShot: spread back and aimed shots too (Team Entities).
+				if (this.cometTrailOn && bullet.isPlayerShot())
 					drawManager.drawBulletTrail(bullet);
 				drawManager.drawEntity(bullet, bullet.getPositionX(),
 						bullet.getPositionY());

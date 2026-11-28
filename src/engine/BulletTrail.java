@@ -40,6 +40,18 @@ public final class BulletTrail {
      */
 	public static void draw(final Graphics g, final int x, final int y,
                             final int width, final int height) {
+		draw(g, x, y, width, height, false);
+	}
+
+    /**
+     * Draws the trail on either side (Team Entities: the spread back shot
+     * flies down, so its trail goes above it).
+     *
+     * @param flyingDown True when the bullet moves down the screen.
+     */
+	public static void draw(final Graphics g, final int x, final int y,
+                            final int width, final int height,
+                            final boolean flyingDown) {
 		if (g == null)
 			return;
 		int n = COLORS.length;
@@ -52,7 +64,8 @@ public final class BulletTrail {
 		// Flame: wide orange outer layer + thin bright core.
 		for (int i = 0; i < n; i++) {
 			float k = i / (float) n;
-			int ty = y + height - 2 + i * SEGMENT;
+			int ty = flyingDown ? y + 2 - (i + 1) * SEGMENT
+					: y + height - 2 + i * SEGMENT;
 			int flicker = (int) (Math.random() * 3) - 1;
 			int outerW = Math.max(2, (int) ((width + 4) * (1f - k)) + flicker);
 			int innerW = Math.max(1, outerW / 2);
@@ -72,7 +85,7 @@ public final class BulletTrail {
 			int spread = width + 6;
 			int ex = centerX - spread / 2 + (int) (Math.random() * spread);
 			int dist = (int) (Math.random() * trailLen);
-			int ey = y + height + dist;
+			int ey = flyingDown ? y - 2 - dist : y + height + dist;
 			int a = (int) (255 * (1f - dist / (float) trailLen));
 			g.setColor(alpha(EMBER, a));
 			g.fillRect(ex, ey, 2, 2);
