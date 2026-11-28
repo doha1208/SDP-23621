@@ -247,6 +247,10 @@ public final class ItemSystem {
             dropRules());
         manager.beginLevel(rules, lifePort);
         manager.setUpgradeFloor(balance.upgradeFloor(level)); // upgrade catch-up (Team Entities)
+        // Spread shot geometry from the balance file; it does not change during a level (Team Entities).
+        if (ship instanceof Ship)
+            ((Ship) ship).setSpreadPattern(balance.spreadFrontGap, balance.spreadDiagonal,
+                balance.spreadWideDiagonal);
         lastUpdateNanos = -1;
         feedback.clear();
         logger.info("Item system started level " + level + ".");
@@ -278,11 +282,7 @@ public final class ItemSystem {
 
     private void update(Entity ship, boolean shipAvailable, boolean gather) {
         // Spread/pierce reach the ship here, so the shared GameScreen needs no extra call.
-        if (ship instanceof Ship) {
-            ((Ship) ship).setWeaponMods(spreadCount(), pierceCount());
-            ((Ship) ship).setSpreadPattern(balance.spreadFrontGap, balance.spreadDiagonal,
-                balance.spreadWideDiagonal); // Team Entities
-        }
+        if (ship instanceof Ship) ((Ship) ship).setWeaponMods(spreadCount(), pierceCount());
         if (!isLevelActive()) return;
         long now = System.nanoTime(), delta = 0;
         if (lastUpdateNanos < 0) lastUpdateNanos = now;
