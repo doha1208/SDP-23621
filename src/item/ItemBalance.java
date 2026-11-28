@@ -41,6 +41,13 @@ final class ItemBalance {
     final boolean sharedUpgradeDecay;
     /** Own per-kill chance for upgrades, rolled apart from basic items; null keeps one shared roll (Team Entities). */
     final Double upgradeDropProbability;
+    /**
+     * Upgrade catch-up (Team Entities). upgradeFloors[level] = upgrades the player should own in that
+     * level (index 0 unused, 0 = no floor). Once catchUpCheckAt of the stage has passed with fewer, the
+     * upgrade chance is at least catchUpStart + catchUpStep per kill since, and 1 from catchUpForceAt.
+     */
+    final int[] upgradeFloors;
+    final double catchUpCheckAt, catchUpStart, catchUpStep, catchUpForceAt;
     final long freezeDurationMillis;
     final long boostDurationMillis, scoreBoostDurationMillis;
     final double boostMultiplier, scoreBoostMultiplier;
@@ -72,6 +79,14 @@ final class ItemBalance {
 
     /** Default values (initial design values). */
     static ItemBalance defaults() { return new ItemBalance(new Properties()); }
+
+    /** Highest level with its own drop.upgrade.floor.stageN key (Team Entities). */
+    static final int MAX_FLOOR_LEVEL = 10;
+
+    /** Upgrades the player should own in this level, 0 for none or an unknown level (Team Entities). */
+    int upgradeFloor(int level) {
+        return level >= 1 && level <= MAX_FLOOR_LEVEL ? upgradeFloors[level] : 0;
+    }
 
     /** Finds and reads the config file. Throws if the given path is missing or unreadable. */
     static ItemBalance load() {
@@ -132,6 +147,15 @@ final class ItemBalance {
         sharedUpgradeDecay = flag(settings, "drop.upgradeDecay.shared", false);
         upgradeDropProbability = raw(settings, "drop.upgrade.probability") == null ? null
             : probability(settings, "drop.upgrade.probability", 0);
+        upgradeFloors = new int[MAX_FLOOR_LEVEL + 1];
+        for (int level = 1; level <= MAX_FLOOR_LEVEL; level++)
+            upgradeFloors[level] = nonNegativeInt(settings, "drop.upgrade.floor.stage" + level, 0);
+        catchUpCheckAt = probability(settings, "drop.upgrade.catchUp.checkAt", 0.5);
+        catchUpStart = probability(settings, "drop.upgrade.catchUp.start", 0.10);
+        catchUpStep = probability(settings, "drop.upgrade.catchUp.step", 0.02);
+        catchUpForceAt = probability(settings, "drop.upgrade.catchUp.forceAt", 0.85);
+        if (catchUpForceAt < catchUpCheckAt)
+            throw new IllegalArgumentException("drop.upgrade.catchUp.forceAt must not be below checkAt");
         specialDropProbability = probability(settings, "drop.special.probability", 1.0);
         Map<String, Double> weights = new LinkedHashMap<String, Double>();
         weights.put("life", weight(settings, "drop.weight.life", 0.6));

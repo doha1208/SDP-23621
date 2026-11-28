@@ -72,6 +72,15 @@ public final class WeaponUpgradeTest {
         return applied;
     }
 
+    /** Upgrades (spread, bullet power) dropped since the last drain. */
+    private static int spawnedUpgrades(ItemSystem items) {
+        int count = 0;
+        for (ItemAPI.ItemEvent event : items.drainEvents())
+            if (event.type == ItemAPI.EventType.ITEM_SPAWNED
+                && ("spread".equals(event.itemId) || "bullet_power".equals(event.itemId))) count++;
+        return count;
+    }
+
     private static Set<Bullet> shootOnce(Ship ship) {
         Set<Bullet> bullets = new HashSet<Bullet>();
         check(ship.shoot(bullets), "Ship shoots");
@@ -217,6 +226,43 @@ public final class WeaponUpgradeTest {
         check(pickUp(items, "bullet_power", 1) == 0, "Bullet power stops at six stacks");
         items.update(powered, true);
         check(shootOnce(powered).iterator().next().getPierce() == 3, "Bullet power reaches the ship's bullets");
+        items.endLevel();
+
+        // Upgrade catch-up (Team Entities): stage 1 wants one upgrade by the time it is half over.
+        Ship catcher = new Ship(200, 500, Ship.ShipType.STANDARD);
+        Ship victim = new Ship(200, 200, Ship.ShipType.STANDARD);
+        items = newRun(catcher);
+        items.drainEvents();
+        items.setStageProgress(0.9);
+        items.onEnemyDefeated(victim, false);
+        check(spawnedUpgrades(items) == 1, "Late in a stage without an upgrade, a kill drops one");
+        items.onEnemyDefeated(victim, false);
+        check(spawnedUpgrades(items) == 1, "A drop that was not caught keeps the catch-up going");
+        check(pickUp(items, "spread", 1) == 1, "Catch the upgrade");
+        items.drainEvents();
+        int afterFloor = 0;
+        for (int kill = 0; kill < 30; kill++) {
+            items.onEnemyDefeated(victim, false);
+            afterFloor += spawnedUpgrades(items);
+        }
+        check(afterFloor < 15, "Floor met: back to the normal upgrade chance");
+        items.endLevel();
+        items = newRun(catcher);
+        items.drainEvents();
+        items.setStageProgress(0.2);
+        int early = 0;
+        for (int kill = 0; kill < 30; kill++) {
+            items.onEnemyDefeated(victim, false);
+            early += spawnedUpgrades(items);
+        }
+        check(early < 15, "Early in the stage: no catch-up yet");
+        items.setStageProgress(-1);
+        int unknown = 0;
+        for (int kill = 0; kill < 30; kill++) {
+            items.onEnemyDefeated(victim, false);
+            unknown += spawnedUpgrades(items);
+        }
+        check(unknown < 15, "Unknown progress (boss stage, timed run): no catch-up");
         items.endLevel();
 
         // Pierce in the game (wave enemies, Team Entities enemy overhaul).

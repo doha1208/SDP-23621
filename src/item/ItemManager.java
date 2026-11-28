@@ -153,6 +153,12 @@ public final class ItemManager {
         }
     }
 
+    /** Stage progress for the upgrade catch-up, 0 to 1, below 0 when unknown (Team Entities). */
+    void setStageProgress(double progress) { drops.setStageProgress(progress); }
+
+    /** Upgrades the player should own this stage; 0 turns the catch-up off (Team Entities). */
+    void setUpgradeFloor(int floor) { drops.setUpgradeFloor(floor); }
+
     void onEnemyDefeated(DropSource source, double x, double y) {
         requireActive(); ItemAPI.required(source, "source");
         ItemAPI.finite(x, "x"); ItemAPI.finite(y, "y");

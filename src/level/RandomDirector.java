@@ -108,9 +108,14 @@ public final class RandomDirector implements LevelDirector {
 
 	/** @return Pressure allowed on screen right now. */
 	public double pressureCap() {
-		double progress = Math.min(1.0, (double) this.frame / this.durationFrames);
-		return this.settings.getPressureStart() + progress
+		return this.settings.getPressureStart() + getProgress()
 				* (this.settings.getPressureEnd() - this.settings.getPressureStart());
+	}
+
+	/** @return Part of the stage duration played, 0 to 1 (active frames only). */
+	@Override
+	public double getProgress() {
+		return Math.min(1.0, (double) this.frame / this.durationFrames);
 	}
 
 	/** @return Active frames so far. */

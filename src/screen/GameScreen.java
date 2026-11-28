@@ -609,9 +609,13 @@ public class GameScreen extends Screen {
 			if (this.boss != null)
 				this.boss.update(this.enemyManager, playerCenterX(),
 						playerCenterY(), this.items.enemiesFrozen());
-			else
+			else {
 				this.levelDirector.update(this.enemyManager, playerCenterX(),
 						playerCenterY());
+				// Upgrade catch-up (Team Entities); none in the timed run.
+				if (!this.timedRunMode)
+					this.items.setStageProgress(this.levelDirector.getProgress());
+			}
 			// Boss stages use it too, for boss bullets and summoned enemies.
 			this.enemyManager.updateEnemies(this.items.enemiesFrozen(),
 					playerCenterX(), playerCenterY());

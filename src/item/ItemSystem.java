@@ -246,9 +246,19 @@ public final class ItemSystem {
             balance.fallSpeed, balance.dropWidth, balance.dropHeight, balance.groundLifetimeMillis,
             dropRules());
         manager.beginLevel(rules, lifePort);
+        manager.setUpgradeFloor(balance.upgradeFloor(level)); // upgrade catch-up (Team Entities)
         lastUpdateNanos = -1;
         feedback.clear();
         logger.info("Item system started level " + level + ".");
+    }
+
+    /**
+     * Part of the stage played so far, 0 to 1 (Team Entities). Upgrades come more often once a stage is
+     * half over and the player owns fewer than that stage's floor (drop.upgrade.floor.stageN).
+     * Below 0, or never called (boss stages, timed run), means no catch-up.
+     */
+    public void setStageProgress(double progress) {
+        if (isLevelActive()) manager.setStageProgress(progress);
     }
 
     /** Exclude pauses/countdowns from effect and drop timers. */
