@@ -22,7 +22,15 @@ class ItemEffectSystem {
     /** Never reused within a run. Keeps increasing after clear. */
     private long nextEffectId = 1;
 
-    ItemEffectSystem() { }
+    /** Bullet power stacks per extra pierce (Team Entities). */
+    private final int bulletPowerPierceEvery;
+
+    ItemEffectSystem() { this(2); }
+
+    ItemEffectSystem(int bulletPowerPierceEvery) {
+        if (bulletPowerPierceEvery <= 0) throw new IllegalArgumentException("bulletPowerPierceEvery");
+        this.bulletPowerPierceEvery = bulletPowerPierceEvery;
+    }
 
     /**
      * Read-only check of whether the effect can be applied. null if possible, otherwise the failure reason.
@@ -132,9 +140,9 @@ class ItemEffectSystem {
                 case RAPID_FIRE:
                     fireRateRatio += logStackedBonus(effect);
                     break;
-                case BULLET_POWER: // rapid fire + one pierce per stack (Team Entities)
+                case BULLET_POWER: // rapid fire every stack, one pierce every N stacks (Team Entities)
                     fireRateRatio += logStackedBonus(effect);
-                    pierce += effect.stacks;
+                    pierce += effect.stacks / bulletPowerPierceEvery;
                     break;
                 case BULLET_SPEED:
                     bulletSpeed = linearStackedBonus(effect);

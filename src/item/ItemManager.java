@@ -49,7 +49,7 @@ public final class ItemManager {
         definitions = new ItemDefinitions(ItemAPI.required(balance, "balance"));
         drops = new ItemDropSystem(definitions, balance, ItemAPI.required(random, "random"));
         inventory = new ItemInventory(capacity);
-        effects = new ItemEffectSystem();
+        effects = new ItemEffectSystem(balance.bulletPowerPierceEvery);
         autoUse = balance.autoUse;
     }
 

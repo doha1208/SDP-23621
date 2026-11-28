@@ -32,9 +32,9 @@ final class ItemBalance {
     final double rapidFireBonus, bulletSpeedBonus;
     final int rapidFireMaxStacks, bulletSpeedMaxStacks, spreadMaxStacks, pierceMaxStacks;
     final double rapidFireDropDecay, bulletSpeedDropDecay, spreadDropDecay, pierceDropDecay;
-    /** Bullet power (Team Entities): rapid fire share like rapidFire.bonus plus one pierce per stack. */
+    /** Bullet power (Team Entities): rapid fire share like rapidFire.bonus plus one pierce every pierceEvery stacks. */
     final double bulletPowerFireBonus, bulletPowerDropDecay;
-    final int bulletPowerMaxStacks;
+    final int bulletPowerMaxStacks, bulletPowerPierceEvery;
     /** true: an upgrade's drop decay counts the stacks of all upgrades together, not just its own (Team Entities). */
     final boolean sharedUpgradeDecay;
     /** Own per-kill chance for upgrades, rolled apart from basic items; null keeps one shared roll (Team Entities). */
@@ -109,7 +109,8 @@ final class ItemBalance {
         pierceMaxStacks = positiveInt(settings, "pierce.maxStacks", 3);
         pierceDropDecay = probability(settings, "pierce.dropDecay", 0.7);
         bulletPowerFireBonus = positiveDouble(settings, "bulletPower.fireBonus", 0.35);
-        bulletPowerMaxStacks = positiveInt(settings, "bulletPower.maxStacks", 3);
+        bulletPowerMaxStacks = positiveInt(settings, "bulletPower.maxStacks", 6);
+        bulletPowerPierceEvery = positiveInt(settings, "bulletPower.pierceEvery", 2);
         bulletPowerDropDecay = probability(settings, "bulletPower.dropDecay", 0.7);
         freezeDurationMillis = positiveLong(settings, "freeze.durationMillis", 4_000L);
         boostDurationMillis = positiveLong(settings, "boost.durationMillis", 7_000L);

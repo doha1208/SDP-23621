@@ -168,12 +168,17 @@ public final class WeaponUpgradeTest {
         check(shootOnce(piercer).iterator().next().getPierce() == 3, "Ship bullets carry pierce");
         items.endLevel();
 
-        // Bullet power (Team Entities): rapid fire and pierce in one item, three stacks at most.
+        // Bullet power (Team Entities): rapid fire every stack, pierce every second stack, six stacks at most.
         Ship powered = new Ship(200, 500, Ship.ShipType.STANDARD);
         items = newRun(powered);
-        check(pickUp(items, "bullet_power", 4) == 3, "Bullet power stops at three stacks");
-        check(Math.abs(items.fireRateBonus(1.0) - 0.35 * 2) < 1e-9, "Bullet power fires 70% faster at 3 stacks");
-        check(items.pierceCount() == 3, "Bullet power pierces one more enemy per stack");
+        int[] pierceAt = {0, 1, 1, 2, 2, 3};
+        for (int stacks = 1; stacks <= 6; stacks++) {
+            check(pickUp(items, "bullet_power", 1) == 1, "Bullet power stack " + stacks);
+            check(Math.abs(items.fireRateBonus(1.0) - 0.35 * Math.log(1 + stacks) / Math.log(2)) < 1e-9,
+                "Bullet power fire rate at " + stacks);
+            check(items.pierceCount() == pierceAt[stacks - 1], "Bullet power pierce at " + stacks);
+        }
+        check(pickUp(items, "bullet_power", 1) == 0, "Bullet power stops at six stacks");
         items.update(powered, true);
         check(shootOnce(powered).iterator().next().getPierce() == 3, "Bullet power reaches the ship's bullets");
         items.endLevel();
