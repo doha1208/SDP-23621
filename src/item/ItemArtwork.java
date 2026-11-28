@@ -24,7 +24,8 @@ public final class ItemArtwork {
         mask(EffectKind.EXTRA_SLOTS, ".........", ".###.###.", ".#.#.#.#.", ".###.###.", ".........", "...###...", "....#....", "...###...", ".........");
         mask(EffectKind.MAGNET, ".##...##.", ".##...##.", ".##...##.", ".##...##.", ".##...##.", ".###.###.", "..#####..", "...###...", ".........");
         mask(EffectKind.MAX_LIFE, ".##...##.", "####.####", "#########", ".#######.", "..#####..", "...###...", "....#....", ".......#.", "......###");
-        mask(EffectKind.LONG_LASTING, ".#######.", "..#...#..", "...#.#...", "....#....", "....#....", "...#.#...", "..#####..", ".#######.", ".........");
+        mask(EffectKind.BULLET_POWER, "....#....", "...###...", "..#####..", "#.#####.#", "#.#####.#", "..#####..", "..#####..", ".#..#..#.", "#...#...#");
+        mask(EffectKind.LONG_LASTING,".#######.", "..#...#..", "...#.#...", "....#....", "....#....", "...#.#...", "..#####..", ".#######.", ".........");
     }
 
     private ItemArtwork() { }
@@ -131,6 +132,7 @@ public final class ItemArtwork {
             case BULLET_SPEED: return "Faster bullets / " + stack(item, effect);
             case SPREAD: return "More bullet lanes / " + stack(item, effect);
             case PIERCE: return "Pass through more enemies / " + stack(item, effect);
+            case BULLET_POWER: return "Faster fire + pierce / " + stack(item, effect);
             default: return item.description;
         }
     }

@@ -130,7 +130,11 @@ class ItemEffectSystem {
         for (RunningEffect effect : running.values()) {
             switch (effect.item.effectKind) {
                 case RAPID_FIRE:
-                    fireRateRatio = logStackedBonus(effect);
+                    fireRateRatio += logStackedBonus(effect);
+                    break;
+                case BULLET_POWER: // rapid fire + one pierce per stack (Team Entities)
+                    fireRateRatio += logStackedBonus(effect);
+                    pierce += effect.stacks;
                     break;
                 case BULLET_SPEED:
                     bulletSpeed = linearStackedBonus(effect);
@@ -139,7 +143,7 @@ class ItemEffectSystem {
                     spread = (int) Math.round(linearStackedBonus(effect));
                     break;
                 case PIERCE:
-                    pierce = (int) Math.round(linearStackedBonus(effect));
+                    pierce += (int) Math.round(linearStackedBonus(effect));
                     break;
                 case FREEZE:
                     movementBlocked = true;
@@ -225,6 +229,7 @@ class ItemEffectSystem {
             case BULLET_SPEED:
             case SPREAD:
             case PIERCE:
+            case BULLET_POWER:
                 expect(item, DurationKind.UNTIL_RUN_END, item.magnitude != null && item.maxStacks != null);
                 break;
             case EXTRA_SLOTS:

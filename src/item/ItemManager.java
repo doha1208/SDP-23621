@@ -290,7 +290,8 @@ public final class ItemManager {
             && item.activationMode == ActivationMode.ON_PICKUP
             && item.durationKind == DurationKind.UNTIL_RUN_END
             && (item.effectKind == EffectKind.RAPID_FIRE || item.effectKind == EffectKind.BULLET_SPEED
-                || item.effectKind == EffectKind.SPREAD || item.effectKind == EffectKind.PIERCE);
+                || item.effectKind == EffectKind.SPREAD || item.effectKind == EffectKind.PIERCE
+                || item.effectKind == EffectKind.BULLET_POWER);
     }
     /** Whether any drop is still on the field. */
     boolean hasDrops() { return active && !drops.snapshot().isEmpty(); }

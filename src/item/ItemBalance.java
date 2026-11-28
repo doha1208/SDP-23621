@@ -32,6 +32,9 @@ final class ItemBalance {
     final double rapidFireBonus, bulletSpeedBonus;
     final int rapidFireMaxStacks, bulletSpeedMaxStacks, spreadMaxStacks, pierceMaxStacks;
     final double rapidFireDropDecay, bulletSpeedDropDecay, spreadDropDecay, pierceDropDecay;
+    /** Bullet power (Team Entities): rapid fire share like rapidFire.bonus plus one pierce per stack. */
+    final double bulletPowerFireBonus, bulletPowerDropDecay;
+    final int bulletPowerMaxStacks;
     /** true: an upgrade's drop decay counts the stacks of all upgrades together, not just its own (Team Entities). */
     final boolean sharedUpgradeDecay;
     /** Own per-kill chance for upgrades, rolled apart from basic items; null keeps one shared roll (Team Entities). */
@@ -105,6 +108,9 @@ final class ItemBalance {
         spreadDropDecay = probability(settings, "spread.dropDecay", 0.7);
         pierceMaxStacks = positiveInt(settings, "pierce.maxStacks", 3);
         pierceDropDecay = probability(settings, "pierce.dropDecay", 0.7);
+        bulletPowerFireBonus = positiveDouble(settings, "bulletPower.fireBonus", 0.35);
+        bulletPowerMaxStacks = positiveInt(settings, "bulletPower.maxStacks", 3);
+        bulletPowerDropDecay = probability(settings, "bulletPower.dropDecay", 0.7);
         freezeDurationMillis = positiveLong(settings, "freeze.durationMillis", 4_000L);
         boostDurationMillis = positiveLong(settings, "boost.durationMillis", 7_000L);
         boostMultiplier = multiplier(settings, "boost.multiplier", 1.5);
@@ -128,6 +134,7 @@ final class ItemBalance {
         weights.put("bullet_speed", weight(settings, "drop.weight.bulletSpeed"));
         weights.put("spread", weight(settings, "drop.weight.spread"));
         weights.put("pierce", weight(settings, "drop.weight.pierce"));
+        weights.put("bullet_power", weight(settings, "drop.weight.bulletPower", 0));
         weights.put("freeze", weight(settings, "drop.weight.freeze"));
         weights.put("boost", weight(settings, "drop.weight.boost"));
         weights.put("score_boost", weight(settings, "drop.weight.scoreBoost"));

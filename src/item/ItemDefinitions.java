@@ -125,6 +125,25 @@ class ItemDefinitions {
         );
         definitions.put(pierce.itemId, pierce);
 
+        // Team Entities: rapid fire and pierce in one upgrade. magnitude is the fire rate share
+        // (log2 curve like rapid fire); every stack also adds one pierce.
+        ItemInfo bulletPower = new ItemInfo(
+            "bullet_power",
+            "Bullet Power",
+            "Fires " + percentOf(balance.bulletPowerFireBonus) + "% faster and bullets pass through one more"
+                + " enemy for the rest of the run. Stacks up to " + balance.bulletPowerMaxStacks + " times.",
+            "bullet_power",
+            ActivationMode.ON_PICKUP,
+            EffectKind.BULLET_POWER,
+            DurationKind.UNTIL_RUN_END,
+            null,
+            null,
+            balance.bulletPowerFireBonus,
+            balance.bulletPowerMaxStacks,
+            EnumSet.of(GrantTiming.NOW, GrantTiming.NEXT_LEVEL)
+        );
+        definitions.put(bulletPower.itemId, bulletPower);
+
         ItemInfo freeze = new ItemInfo(
             "freeze",
             "Freeze",
@@ -313,6 +332,7 @@ class ItemDefinitions {
                 case BULLET_SPEED:
                 case SPREAD:
                 case PIERCE:
+                case BULLET_POWER:
                     requireDefinition(item, isRunStack(item));
                     break;
                 case FREEZE:

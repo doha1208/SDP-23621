@@ -50,7 +50,9 @@ public final class ItemAPI {
     public enum ActivationMode { ON_PICKUP, MANUAL, EQUIPPED }
     public enum EffectKind {
         LIFE, SHIELD, RAPID_FIRE, BULLET_SPEED, SPREAD, PIERCE, FREEZE, BOOST, SCORE_BOOST,
-        EXTRA_SLOTS, MAGNET, MAX_LIFE, LONG_LASTING
+        EXTRA_SLOTS, MAGNET, MAX_LIFE, LONG_LASTING,
+        /** Rapid fire and pierce in one upgrade (Team Entities). */
+        BULLET_POWER
     }
     /**
      * UNTIL_RUN_END: lasts for the whole run and stacks when picked up again (rapid fire, bullet speed, spread, pierce).

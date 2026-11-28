@@ -44,6 +44,7 @@ public final class ItemSounds {
             case "life":
                 return Sound.ITEM_LIFE;
             case "rapid_fire":
+            case "bullet_power": // rapid fire + pierce (Team Entities)
                 return Sound.ITEM_RAPID_FIRE;
             case "bullet_speed":
                 return Sound.ITEM_BULLET_SPEED;
