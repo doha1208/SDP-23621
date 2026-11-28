@@ -34,6 +34,8 @@ final class ItemBalance {
     final double rapidFireDropDecay, bulletSpeedDropDecay, spreadDropDecay, pierceDropDecay;
     /** true: an upgrade's drop decay counts the stacks of all upgrades together, not just its own (Team Entities). */
     final boolean sharedUpgradeDecay;
+    /** Own per-kill chance for upgrades, rolled apart from basic items; null keeps one shared roll (Team Entities). */
+    final Double upgradeDropProbability;
     final long freezeDurationMillis;
     final long boostDurationMillis, scoreBoostDurationMillis;
     final double boostMultiplier, scoreBoostMultiplier;
@@ -116,6 +118,8 @@ final class ItemBalance {
 
         regularDropProbability = probability(settings, "drop.regular.probability", 0.15);
         sharedUpgradeDecay = flag(settings, "drop.upgradeDecay.shared", false);
+        upgradeDropProbability = raw(settings, "drop.upgrade.probability") == null ? null
+            : probability(settings, "drop.upgrade.probability", 0);
         specialDropProbability = probability(settings, "drop.special.probability", 1.0);
         Map<String, Double> weights = new LinkedHashMap<String, Double>();
         weights.put("life", weight(settings, "drop.weight.life", 0.6));

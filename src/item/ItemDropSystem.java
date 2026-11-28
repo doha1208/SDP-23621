@@ -69,6 +69,57 @@ class ItemDropSystem {
      * No drop (null) when every candidate is removed.
      */
     DropView spawn(DropSource source, double cx, double cy, Map<String, Integer> stacks) {
+        DropRule rule = checkSpawn(source, cx, cy, stacks);
+        if (!roll(rule.probability)) return null;
+        return place(rule, null, cx, cy, stacks);
+    }
+
+    /**
+     * All drops for one defeated enemy (Team Entities). With drop.upgrade.probability set, a regular
+     * enemy rolls twice: basic items (life, shield, freeze, boost, score boost) at the rule's probability,
+     * and upgrades (rapid fire, bullet speed, spread, pierce) at drop.upgrade.probability times how far
+     * their weights have decayed. So one kill may drop up to two items. Otherwise one roll, as spawn().
+     */
+    List<DropView> spawnAll(DropSource source, double cx, double cy, Map<String, Integer> stacks) {
+        DropRule rule = checkSpawn(source, cx, cy, stacks);
+        List<DropView> spawned = new ArrayList<DropView>();
+        if (balance.upgradeDropProbability == null || source != DropSource.REGULAR_ENEMY) {
+            DropView drop = spawn(source, cx, cy, stacks);
+            if (drop != null) spawned.add(drop);
+            return spawned;
+        }
+        // Upgrade chance shrinks with the decayed share of the upgrade weights.
+        double base = 0, decayed = 0;
+        for (Map.Entry<String, Double> entry : rule.weights.entrySet()) {
+            if (!isUpgrade(entry.getKey())) continue;
+            base += Math.max(0, entry.getValue());
+            decayed += effectiveWeight(rule, entry.getKey(), entry.getValue(), stacks);
+        }
+        double upgradeChance = base <= 0 ? 0 : balance.upgradeDropProbability * decayed / base;
+        if (roll(upgradeChance)) {
+            DropView drop = place(rule, Boolean.TRUE, cx, cy, stacks);
+            if (drop != null) spawned.add(drop);
+        }
+        if (roll(rule.probability)) {
+            DropView drop = place(rule, Boolean.FALSE, cx, cy, stacks);
+            if (drop != null) spawned.add(drop);
+        }
+        return spawned;
+    }
+
+    /** Upgrades stack for the run (they have maxStacks); every other kind is a basic item. */
+    private boolean isUpgrade(String itemId) {
+        ItemInfo info = definitions.find(itemId);
+        return info != null && info.maxStacks != null;
+    }
+
+    /** p==0/1 consumes no random number. */
+    private boolean roll(double probability) {
+        if (probability <= 0) return false;
+        return probability >= 1 || random.nextDouble() < probability;
+    }
+
+    private DropRule checkSpawn(DropSource source, double cx, double cy, Map<String, Integer> stacks) {
         requireActive();
         ItemAPI.required(source, "source");
         ItemAPI.finite(cx, "cx");
@@ -76,13 +127,16 @@ class ItemDropSystem {
         ItemAPI.required(stacks, "stacks");
         DropRule rule = rules.dropRules.get(source);
         if (rule == null) throw new IllegalStateException("missing drop rule: " + source);
-        if (rule.probability == 0) return null;
-        if (rule.probability < 1 && random.nextDouble() >= rule.probability) return null;
+        return rule;
+    }
 
+    /** Picks a kind by weight (upgrades only, basic only, or any when null) and registers the drop. */
+    private DropView place(DropRule rule, Boolean upgrades, double cx, double cy, Map<String, Integer> stacks) {
         Map<String, Double> weights = new LinkedHashMap<String, Double>();
         double total = 0;
         String selected = null;
         for (Map.Entry<String, Double> entry : rule.weights.entrySet()) {
+            if (upgrades != null && isUpgrade(entry.getKey()) != upgrades) continue;
             double weight = effectiveWeight(rule, entry.getKey(), entry.getValue(), stacks);
             if (weight > 0) {
                 weights.put(entry.getKey(), weight);

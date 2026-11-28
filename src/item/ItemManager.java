@@ -156,8 +156,7 @@ public final class ItemManager {
     void onEnemyDefeated(DropSource source, double x, double y) {
         requireActive(); ItemAPI.required(source, "source");
         ItemAPI.finite(x, "x"); ItemAPI.finite(y, "y");
-        DropView spawned = drops.spawn(source, x, y, effects.stacksByItemId());
-        if (spawned != null)
+        for (DropView spawned : drops.spawnAll(source, x, y, effects.stacksByItemId()))
             emit(EventType.ITEM_SPAWNED, spawned.item.itemId, spawned.dropId,
                 null, null, null, null, null, null, spawned.bounds);
     }
