@@ -242,8 +242,10 @@ public final class ItemSystem {
         ItemAPI.required(ship, "ship");
         endLevel();
         levelNumber = level;
+        // LevelRules still takes the old fall speed and ground lifetime (public API); bouncing drops
+        // ignore both, so the drop speed and bounce time stand in for them (Team Entities).
         LevelRules rules = new LevelRules("level-" + level, 0, screenWidth, PLAY_AREA_TOP, screenHeight,
-            balance.fallSpeed, balance.dropWidth, balance.dropHeight, balance.groundLifetimeMillis,
+            balance.bounceSpeed, balance.dropWidth, balance.dropHeight, balance.bounceMillis,
             dropRules());
         manager.beginLevel(rules, lifePort);
         manager.setUpgradeFloor(balance.upgradeFloor(level)); // upgrade catch-up (Team Entities)

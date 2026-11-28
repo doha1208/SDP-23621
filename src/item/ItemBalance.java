@@ -53,15 +53,12 @@ final class ItemBalance {
     final double regularDropProbability, specialDropProbability;
     /** itemId → weight. Keeps registration order. */
     final Map<String, Double> dropWeights;
-    final double fallSpeed, horizontalSpeed, dropWidth, dropHeight;
-    final long directionChangeMillis;
+    final double dropWidth, dropHeight;
     /** Bouncing drops (Team Entities): speed in px/s and how long they bounce before flying off screen. */
     final double bounceSpeed;
     final long bounceMillis;
     /** Speed (px/s) at which leftover drops fly to the ship when a level is cleared (Team Entities). */
     final double gatherSpeed;
-    /** Legacy LevelRules constructor value; drops no longer land or use a ground lifetime. */
-    final long groundLifetimeMillis;
 
     final int inventoryCapacity;
     /** Picked-up slot items (shield, freeze, boost, score boost) start at once instead of going to a slot (Team Entities). */
@@ -153,15 +150,11 @@ final class ItemBalance {
         weights.put("boost", weight(settings, "drop.weight.boost"));
         weights.put("score_boost", weight(settings, "drop.weight.scoreBoost"));
         dropWeights = java.util.Collections.unmodifiableMap(weights);
-        fallSpeed = positiveDouble(settings, "drop.fallSpeed", 80);
-        horizontalSpeed = positiveDouble(settings, "drop.horizontalSpeed", 65);
-        directionChangeMillis = positiveLong(settings, "drop.directionChangeMillis", 700L);
         bounceSpeed = positiveDouble(settings, "drop.speed", 150);
         bounceMillis = positiveLong(settings, "drop.bounceMillis", 6_000L);
         gatherSpeed = positiveDouble(settings, "drop.gatherSpeed", 700);
         dropWidth = positiveDouble(settings, "drop.width", 24);
         dropHeight = positiveDouble(settings, "drop.height", 24);
-        groundLifetimeMillis = positiveLong(settings, "drop.groundLifetimeMillis", 8_000L);
 
         inventoryCapacity = positiveInt(settings, "inventory.capacity", 3);
         autoUse = flag(settings, "pickup.autoUse", true);
