@@ -195,6 +195,14 @@ public final class ItemManager {
                 null, null, null, null, null, null, expired.bounds);
         if (!currentPlayer.canPickup) return;
         for (DropView contact : frame.contacts) {
+            // A timed item gathered after a clear would start and then end with the level a moment
+            // later, so it is simply removed instead (Team Entities).
+            if (gather && startsTimedNow(contact.item)) {
+                drops.completePickup(contact.dropId);
+                emit(EventType.ITEM_EXPIRED, contact.item.itemId, contact.dropId,
+                    null, null, null, null, null, null, contact.bounds);
+                continue;
+            }
             Acquisition acquired = acquire(contact.item, autoUse);
             if (acquired.failure != null) {
                 // Only an attracted drop that physically touches the player is converted.
@@ -306,6 +314,12 @@ public final class ItemManager {
             && item.durationKind == DurationKind.UNTIL_RUN_END
             && item.effectKind.isRunUpgrade();
     }
+    /** A timed effect that a pickup would start at once (not stored in a slot). */
+    private boolean startsTimedNow(ItemInfo item) {
+        return item.durationKind == DurationKind.TIMED
+            && (autoUse || item.activationMode != ActivationMode.MANUAL);
+    }
+
     /** Whether any drop is still on the field. */
     boolean hasDrops() { return active && !drops.snapshot().isEmpty(); }
     /** Whether a level is active. Used by the game bridge (ItemSystem) to avoid double begin/end. */
