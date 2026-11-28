@@ -389,9 +389,33 @@ public final class DrawManager {
 			// For all other entities (ships, enemies, and ENEMY bullets), use the standard 2x pixel drawing
 			drawSprite(entity.getSpriteType(), positionX, positionY,
 					entity.getColor());
+			if (entity.getSpriteType() == SpriteType.ShipDestroyed)
+				drawSpriteMirroredBelow(SpriteType.ShipDestroyed, positionX,
+						positionY, entity.getColor());
 		}
 
 		g2d.setComposite(AlphaComposite.SrcOver); // back to normal
+	}
+
+	/**
+	 * Draws a sprite upside down just below the given top (Team Entities):
+	 * the player wreck bursts both ways instead of lying on a floor.
+	 *
+	 * @param spriteType Sprite to draw.
+	 * @param positionX Left side of the image.
+	 * @param positionY Top of the original image; the copy starts below it.
+	 * @param color Color used for filled pixels.
+	 */
+	private void drawSpriteMirroredBelow(final SpriteType spriteType,
+			final int positionX, final int positionY, final Color color) {
+		boolean[][] image = spriteMap.get(spriteType);
+		int rows = image[0].length;
+		backBufferGraphics.setColor(color);
+		for (int i = 0; i < image.length; i++)
+			for (int j = 0; j < rows; j++)
+				if (image[i][j])
+					backBufferGraphics.drawRect(positionX + i * 2,
+							positionY + (rows * 2 - 1 - j) * 2, 1, 1);
 	}
 
 	/**
