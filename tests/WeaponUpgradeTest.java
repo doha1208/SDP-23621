@@ -178,6 +178,7 @@ public final class WeaponUpgradeTest {
             check(diagonals.size() == (stacks >= 6 ? 4 : stacks >= 2 ? 2 : 0), "Diagonals at spread " + stacks);
             check(back == (stacks >= 4 ? 1 : 0), "Back shot at spread " + stacks);
             check(aimed == (stacks >= 5 ? 1 : 0), "Aimed shot at spread " + stacks);
+            check(ship.getLastForwardShots() == shot.size() - back, "Accuracy counts every shot but the back one at spread " + stacks);
         }
         check(pickUp(items, "spread", 1) == 0, "Spread stops at six stacks");
         Ship lonely = new Ship(200, 500, Ship.ShipType.STANDARD);

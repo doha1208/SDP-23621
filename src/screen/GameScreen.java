@@ -596,10 +596,10 @@ public class GameScreen extends Screen {
 					moveShipVertically();
 				if (inputManager.isKeyDown(KeyEvent.VK_SPACE)) {
 					// Count bullets, not trigger pulls: Two Way fires two at
-					// once, and accuracy is kills per bullet.
-					int bulletsBefore = this.bullets.size();
+					// once, and accuracy is kills per bullet. The spread back
+					// shot is left out; it almost never hits (Team Entities).
 					if (this.ship.shoot(this.bullets))
-						this.bulletsShot += this.bullets.size() - bulletsBefore;
+						this.bulletsShot += this.ship.getLastForwardShots();
 				}
 				useItemSlots(); // Item System (Team CS)
 			}

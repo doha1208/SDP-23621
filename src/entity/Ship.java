@@ -193,6 +193,8 @@ public class Ship extends Entity {
 	private int spreadWideDiagonal = 6;
 	/** Extra enemies each bullet passes through, from the pierce item (Team CS). */
 	private int itemPierceCount;
+	/** Bullets of the last shot that fly at enemies, without the spread back shot (Team Entities). */
+	private int lastForwardShots;
 
 	/**
 	 * AUTHORED BY: VFX TEAM (effection)
@@ -298,6 +300,9 @@ public class Ship extends Entity {
 			final int barrels = this.type.bulletsPerShot;
 			final int spread = this.itemSpreadCount;
 			final int columns = spread >= 3 ? 3 : spread >= 1 ? 2 : 1;
+			// Every bullet below except the back shot (stack 4) flies at enemies.
+			this.lastForwardShots = columns * barrels + (spread >= 2 ? 2 : 0)
+					+ (spread >= 5 ? 1 : 0) + (spread >= 6 ? 2 : 0);
 			for (int column = 0; column < columns; column++) {
 				final int columnX = centerX
 						+ (2 * column - (columns - 1)) * this.spreadFrontGap / 2;
@@ -565,6 +570,15 @@ public class Ship extends Entity {
 	/** @return True while the ship cannot be hit after losing a life. */
 	public final boolean isInvincible() {
 		return this.invincibleFrames > 0;
+	}
+
+	/**
+	 * @return Bullets of the last shot that fly at enemies (Team Entities):
+	 *         all of them except the spread back shot, which almost never
+	 *         hits. Used for accuracy.
+	 */
+	public final int getLastForwardShots() {
+		return this.lastForwardShots;
 	}
 
 	/**
