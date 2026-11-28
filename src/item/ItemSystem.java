@@ -52,6 +52,8 @@ public final class ItemSystem {
     private final ItemAPI api;
     private GameHooks hooks;
     private int levelNumber;
+    /** Upgrade stacks when this level began, so a restart cannot keep upgrades from the try it threw away. */
+    private Map<String, Integer> levelStartUpgrades;
     private long lastUpdateNanos = -1;
     /** Shared game logger, like the other systems use. */
     private final Logger logger = Core.getLogger();
@@ -249,6 +251,7 @@ public final class ItemSystem {
             dropRules());
         manager.beginLevel(rules, lifePort);
         manager.setUpgradeFloor(balance.upgradeFloor(level)); // upgrade catch-up (Team Entities)
+        levelStartUpgrades = manager.upgradeStacks(); // for restartLevel (Team Entities)
         // Spread shot geometry from the balance file; it does not change during a level (Team Entities).
         if (ship instanceof Ship)
             ((Ship) ship).setSpreadPattern(balance.spreadFrontGap, balance.spreadDiagonal,
@@ -410,6 +413,16 @@ public final class ItemSystem {
     /** Compact, two-line explanation above the player. Time freezes while gameplay is paused. */
     public void drawNotice(Graphics graphics, int width, int height, java.awt.Font font) {
         feedback.drawNotice(graphics, width, height, font);
+    }
+
+    /**
+     * Ends the level for a restart of the same level (Team Entities): upgrade stacks go back to what they
+     * were when the level began, then the level ends as in endLevel(). Does nothing if no level is active.
+     */
+    public void endLevelForRestart() {
+        if (!isLevelActive()) return;
+        if (levelStartUpgrades != null) manager.restoreUpgradeStacks(levelStartUpgrades);
+        endLevel();
     }
 
     /** Ends the level. Does nothing if no level is active. */

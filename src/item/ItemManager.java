@@ -159,6 +159,15 @@ public final class ItemManager {
     /** Upgrades the player should own this stage; 0 turns the catch-up off (Team Entities). */
     void setUpgradeFloor(int floor) { drops.setUpgradeFloor(floor); }
 
+    /** Copy of the run-wide upgrade stacks, itemId to stacks (Team Entities). */
+    Map<String, Integer> upgradeStacks() { return effects.stacksByItemId(); }
+
+    /** Rolls the upgrade stacks back to an earlier upgradeStacks() copy, for a level restart (Team Entities). */
+    void restoreUpgradeStacks(Map<String, Integer> earlier) {
+        requireActive(); ItemAPI.required(earlier, "earlier");
+        for (ItemEffectSystem.Ended ended : effects.restoreStacks(earlier)) emitEnded(ended);
+    }
+
     void onEnemyDefeated(DropSource source, double x, double y) {
         requireActive(); ItemAPI.required(source, "source");
         ItemAPI.finite(x, "x"); ItemAPI.finite(y, "y");

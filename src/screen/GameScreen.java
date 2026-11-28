@@ -953,7 +953,8 @@ public class GameScreen extends Screen {
 	 * level began, and every on-screen element is rebuilt from scratch.
 	 */
 	private void restartLevel() {
-		this.items.endLevel();
+		// Upgrades caught in the abandoned try are taken back (Team Entities).
+		this.items.endLevelForRestart();
 		GameEvents.unsubscribe(GameEvents.Type.PLAYER_HIT, this.damageDim);
 		GameEvents.unsubscribe(GameEvents.Type.PLAYER_HIT, this.lightningChain);
 		BulletPool.recycle(this.bullets);

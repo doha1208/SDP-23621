@@ -176,6 +176,28 @@ class ItemEffectSystem {
         return Collections.unmodifiableList(views);
     }
 
+    /**
+     * Puts run-wide stacks back to an earlier stacksByItemId() copy, for a level restart (Team Entities).
+     * Stacks only grow during a run, so this only lowers them, or removes an effect missing from the copy
+     * and returns Ended(LEVEL_ENDED) for it.
+     */
+    List<Ended> restoreStacks(Map<String, Integer> earlier) {
+        List<Ended> ended = new ArrayList<Ended>();
+        Iterator<RunningEffect> iterator = running.values().iterator();
+        while (iterator.hasNext()) {
+            RunningEffect effect = iterator.next();
+            if (!effect.stackable()) continue;
+            Integer keep = earlier.get(effect.item.itemId);
+            if (keep != null && keep > 0) {
+                effect.stacks = Math.min(effect.stacks, keep);
+                continue;
+            }
+            ended.add(new Ended(effect.item.itemId, effect.effectId, EffectEndReason.LEVEL_ENDED));
+            iterator.remove();
+        }
+        return Collections.unmodifiableList(ended);
+    }
+
     /** Removes stage effects and returns Ended(LEVEL_ENDED) for each. Run-wide stacking and equipped effects and IDs are kept. */
     List<Ended> clear() {
         List<Ended> ended = new ArrayList<Ended>(running.size());

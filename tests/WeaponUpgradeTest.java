@@ -260,6 +260,18 @@ public final class WeaponUpgradeTest {
         check(unknown < 15, "Unknown progress (boss stage, timed run): no catch-up");
         items.endLevel();
 
+        // Restarting a level takes back the upgrades caught in the abandoned try (Team Entities).
+        items = newRun(catcher);
+        check(pickUp(items, "spread", 1) == 1, "Spread caught on level 1");
+        items.beginLevel(2, 448, 520, catcher, HOOKS);
+        check(pickUp(items, "spread", 2) == 2 && pickUp(items, "bullet_power", 1) == 1, "Upgrades caught on level 2");
+        items.endLevelForRestart();
+        items.beginLevel(2, 448, 520, catcher, HOOKS);
+        check(items.spreadCount() == 1, "Restart keeps the spread stack level 2 began with");
+        check(items.fireRateBonus(1.0) == 0 && items.pierceCount() == 0, "Restart removes bullet power caught on level 2");
+        check(pickUp(items, "bullet_power", 1) == 1 && items.fireRateBonus(1.0) > 0, "Bullet power can be caught again");
+        items.endLevel();
+
         // Pierce in the game (wave enemies, Team Entities enemy overhaul).
         GameScreen screen = new GameScreen(new GameState(1, 0, 3, 0, 0, 0),
             new GameSettings(5, 2, 60, 2000), false, 448, 520, 60);
