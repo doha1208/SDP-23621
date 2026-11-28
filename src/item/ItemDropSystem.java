@@ -80,11 +80,19 @@ class ItemDropSystem {
     }
 
     /**
-     * Catch-up (Team Entities): past balance.catchUpCheckAt of the stage the player still owns fewer
-     * upgrades than the floor. Counts owned stacks, so a drop that flew away keeps the catch-up going.
+     * Catch-up (Team Entities): past balance.catchUpCheckAt of the stage the player still has fewer
+     * upgrades than the floor. Counts owned stacks plus upgrade drops still on the field, so a drop that
+     * flew away keeps the catch-up going but one still bouncing does not make it drop more.
      */
-    private boolean behindFloor(int ownedUpgrades) {
-        return stageProgress >= balance.catchUpCheckAt && ownedUpgrades < upgradeFloor;
+    private boolean behindFloor(int upgrades) {
+        return stageProgress >= balance.catchUpCheckAt && upgrades < upgradeFloor;
+    }
+
+    /** Upgrade drops still on the field, not caught yet. */
+    private int upgradesOnField() {
+        int count = 0;
+        for (DroppedItem item : items.values()) if (item.info.effectKind.isRunUpgrade()) count++;
+        return count;
     }
 
     /** Lowest upgrade chance while behind: catchUpStart plus catchUpStep per kill since, 1 from catchUpForceAt. */
@@ -140,7 +148,8 @@ class ItemDropSystem {
         }
         double upgradeChance = base <= 0 ? 0 : balance.upgradeDropProbability * decayed / base;
         // A zero decayed weight means every upgrade is maxed: nothing left to catch up on.
-        if (decayed > 0 && behindFloor(owned)) {
+        // Upgrade drops still on the field count too, so the catch-up never piles them up.
+        if (decayed > 0 && behindFloor(owned + upgradesOnField())) {
             upgradeChance = Math.max(upgradeChance, catchUpChance());
             catchUpKills++;
         }

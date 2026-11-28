@@ -227,8 +227,12 @@ public final class WeaponUpgradeTest {
         items.setStageProgress(0.9);
         items.onEnemyDefeated(victim, false);
         check(spawnedUpgrades(items) == 1, "Late in a stage without an upgrade, a kill drops one");
-        items.onEnemyDefeated(victim, false);
-        check(spawnedUpgrades(items) == 1, "A drop that was not caught keeps the catch-up going");
+        int piled = 0;
+        for (int kill = 0; kill < 20; kill++) {
+            items.onEnemyDefeated(victim, false);
+            piled += spawnedUpgrades(items);
+        }
+        check(piled < 5, "An upgrade drop still on the field counts toward the floor (no pile of catch-up drops)");
         check(pickUp(items, "spread", 1) == 1, "Catch the upgrade");
         items.drainEvents();
         int afterFloor = 0;
