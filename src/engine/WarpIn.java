@@ -321,8 +321,7 @@ public final class WarpIn {
 
 	/**
 	 * Impact (k = 0 to 1): RGB split and white flash on the ship, light
-	 * rays fanning up and down, two rings around the ship's base and debris
-	 * thrown up and down (mirrored, Team Entities).
+	 * rays fanning up, two rings on the ground and debris kicked up.
 	 */
 	private static void drawImpact(final Graphics2D g, final boolean[][] image,final int x, final int y, final Color color, final Color light,
 			final double k, final long seed) {
@@ -358,16 +357,12 @@ public final class WarpIn {
 						+ (rays.nextDouble() - 0.5) * 0.12;
 				double len = reach * (0.55 + rays.nextDouble() * 0.45);
 				double s = i % 2 == 0 ? 0.075 : 0.04;
-				int[] xs = { (int) cx, (int) (cx + Math.cos(a - s) * len),
-						(int) (cx + Math.cos(a + s) * len) };
-				g.fillPolygon(xs, new int[] { (int) ground - 2,
-						(int) (ground + Math.sin(a - s) * len),
-						(int) (ground + Math.sin(a + s) * len) }, 3);
-				// The same fan mirrored down: the ship can be anywhere now,
-				// so the burst goes every way (Team Entities).
-				g.fillPolygon(xs, new int[] { (int) ground + 2,
-						(int) (ground - Math.sin(a - s) * len),
-						(int) (ground - Math.sin(a + s) * len) }, 3);
+				g.fillPolygon(new int[] { (int) cx,
+						(int) (cx + Math.cos(a - s) * len),
+						(int) (cx + Math.cos(a + s) * len) },
+						new int[] { (int) ground - 2,
+								(int) (ground + Math.sin(a - s) * len),
+								(int) (ground + Math.sin(a + s) * len) }, 3);
 			}
 		}
 		for (int ring = 0; ring < 2; ring++) {
@@ -397,8 +392,6 @@ public final class WarpIn {
 			setAlpha(g, (float) (1 - k / life));
 			g.setColor(i % 3 == 0 ? Color.WHITE : i % 3 == 1 ? light : color);
 			g.fillRect((int) dx, (int) dy, i % 3 == 0 ? 3 : 2, 2);
-			// Mirrored down as well (Team Entities).
-			g.fillRect((int) dx, (int) (2 * ground - dy), i % 3 == 0 ? 3 : 2, 2);
 		}
 	}
 
