@@ -86,8 +86,8 @@ public final class ItemVisualGameTest {
             Ship ship = (Ship) get(game, "ship");
             ItemSystem items = (ItemSystem) get(game, "items");
             items.update(ship, true);
-            for (String id : new String[]{"rapid_fire", "bullet_speed", "spread", "pierce"}) grant(items, id);
-            grant(items, "rapid_fire");
+            for (String id : new String[]{"spread", "bullet_power"}) grant(items, id);
+            grant(items, "bullet_power");
             ItemFeedback feedback = (ItemFeedback) get(items, "feedback");
             feedback.clear();
             grant(items, "shield");
@@ -101,7 +101,7 @@ public final class ItemVisualGameTest {
                 check(items.useSlot(0) == UseResult.USED, "Activate " + id);
             }
             for (String id : new String[]{"shield", "freeze", "boost"}) grant(items, id);
-            check(items.api().getView().effects.size() == 8, "All eight gameplay effects are present");
+            check(items.api().getView().effects.size() == 6, "All six gameplay effects are present");
             ItemManager manager = (ItemManager) get(items, "manager");
             ItemDropSystem drops = (ItemDropSystem) get(manager, "drops");
             ((Random) get(drops, "random")).setSeed(23621);

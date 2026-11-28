@@ -49,13 +49,19 @@ public final class ItemAPI {
      */
     public enum ActivationMode { ON_PICKUP, MANUAL, EQUIPPED }
     public enum EffectKind {
-        LIFE, SHIELD, RAPID_FIRE, BULLET_SPEED, SPREAD, PIERCE, FREEZE, BOOST, SCORE_BOOST,
+        LIFE, SHIELD, SPREAD, FREEZE, BOOST, SCORE_BOOST,
         EXTRA_SLOTS, MAGNET, MAX_LIFE, LONG_LASTING,
-        /** Rapid fire and pierce in one upgrade (Team Entities). */
-        BULLET_POWER
+        /** Faster fire and pierce in one upgrade (Team Entities; replaced rapid fire, bullet speed and pierce). */
+        BULLET_POWER;
+
+        /**
+         * Upgrades: picked up at once, last the whole run and stack (spread, bullet power). The one
+         * place that lists them; definitions, effects, drops and NEXT_LEVEL grants all ask here.
+         */
+        public boolean isRunUpgrade() { return this == SPREAD || this == BULLET_POWER; }
     }
     /**
-     * UNTIL_RUN_END: lasts for the whole run and stacks when picked up again (rapid fire, bullet speed, spread, pierce).
+     * UNTIL_RUN_END: lasts for the whole run and stacks when picked up again (spread, bullet power).
      * WHILE_EQUIPPED: active for the whole run while the item is equipped.
      */
     public enum DurationKind { INSTANT, TIMED, UNTIL_LEVEL_END, UNTIL_RUN_END, WHILE_EQUIPPED }
@@ -103,9 +109,9 @@ public final class ItemAPI {
 
     /**
      * Values added by items. Temporary extra = (base value * multiplier) - base value.
-     * fireRateBonus: extra shots per second. fireRateRatio: extra share of the base fire rate (rapid fire).
-     * bulletSpeedBonus: extra bullet speed in pixels per frame.
-     * spreadCount: extra bullet lanes per shot. pierceCount: extra enemies one bullet passes through.
+     * fireRateBonus: extra shots per second. fireRateRatio: extra share of the base fire rate (bullet power).
+     * bulletSpeedBonus: extra bullet speed in pixels per frame (no item gives it at the moment).
+     * spreadCount: spread item stacks. pierceCount: extra enemies one bullet passes through (bullet power).
      * Multiplier fields describe the effects; the bonus helpers return only the amounts to add.
      * BOOST does not scale permanent bonuses. A multiplier below 1 produces no extra bonus.
      */

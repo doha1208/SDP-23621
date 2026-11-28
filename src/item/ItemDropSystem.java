@@ -142,10 +142,10 @@ class ItemDropSystem {
         return spawned;
     }
 
-    /** Upgrades stack for the run (they have maxStacks); every other kind is a basic item. */
+    /** Upgrades stack for the run (EffectKind.isRunUpgrade); every other kind is a basic item. */
     private boolean isUpgrade(String itemId) {
         ItemInfo info = definitions.find(itemId);
-        return info != null && info.maxStacks != null;
+        return info != null && info.effectKind.isRunUpgrade();
     }
 
     /** p==0/1 consumes no random number. */

@@ -119,21 +119,18 @@ public final class WeaponUpgradeTest {
         Core.getLogger().setUseParentHandlers(false);
         SoundManager.getInstance().setMuted(true);
 
-        // Rapid fire: same share of the base rate for every ship.
+        // Bullet power's faster fire: same share of the base rate for every ship.
         Ship standard = new Ship(200, 500, Ship.ShipType.STANDARD);
         ItemSystem items = newRun(standard);
-        check(pickUp(items, "rapid_fire", 6) == 6, "Rapid fire stacks six times");
+        check(pickUp(items, "bullet_power", 6) == 6, "Bullet power stacks six times");
         double slow = items.fireRateBonus(standard.getBaseFireRate()) / standard.getBaseFireRate();
         double fast = items.fireRateBonus(1000.0 / 375) / (1000.0 / 375);
-        check(Math.abs(slow - fast) < 1e-9, "Rapid fire gives every ship the same ratio");
-        check(Math.abs(slow - 0.35 * Math.log(7) / Math.log(2)) < 1e-9, "Rapid fire ratio at 6 stacks");
-
-        // Bullet speed: +1 px/frame per stack, three stacks at most.
-        check(pickUp(items, "bullet_speed", 4) == 3, "Bullet speed stops at three stacks");
-        check(items.bulletSpeedBonus() == 3.0, "Bullet speed adds 1 px/frame per stack");
-        items.update(standard, true);
-        standard.setItemBonuses(0, items.bulletSpeedBonus());
-        check(shootOnce(standard).iterator().next().getSpeed() == -9, "Bullet flies at 9 px/frame");
+        check(Math.abs(slow - fast) < 1e-9, "Faster fire gives every ship the same ratio");
+        check(Math.abs(slow - 0.35 * Math.log(7) / Math.log(2)) < 1e-9, "Fire rate ratio at 6 stacks");
+        check(items.bulletSpeedBonus() == 0, "No item changes bullet speed");
+        for (String gone : new String[]{"rapid_fire", "bullet_speed", "pierce"})
+            check(ItemAPI.EffectKind.BULLET_POWER.isRunUpgrade() && pickUp(items, gone, 1) == 0,
+                "Old upgrade " + gone + " no longer exists");
 
         // Spread (Team Entities): 1 two front shots, 2 diagonal pair, 3 three front shots,
         // 4 back shot, 5 aimed shot, 6 wider diagonal pair. Left and right stay symmetric.
@@ -206,12 +203,6 @@ public final class WeaponUpgradeTest {
         BulletPool.recycle(used);
         Bullet reused = BulletPool.getBullet(0, 0, -6);
         check(reused.getPierce() == 0 && reused.registerHit(first), "Pooled bullet forgets pierce state");
-        Ship piercer = new Ship(200, 500, Ship.ShipType.STANDARD);
-        items = newRun(piercer);
-        check(pickUp(items, "pierce", 4) == 3, "Pierce stops at three stacks");
-        items.update(piercer, true);
-        check(shootOnce(piercer).iterator().next().getPierce() == 3, "Ship bullets carry pierce");
-        items.endLevel();
 
         // Bullet power (Team Entities): rapid fire every stack, pierce every second stack, six stacks at most.
         Ship powered = new Ship(200, 500, Ship.ShipType.STANDARD);

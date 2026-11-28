@@ -542,10 +542,7 @@ public final class ItemSystem {
     private Map<DropSource, DropRule> dropRules() {
         Map<String, Double> weights = balance.dropWeights;
         Map<String, Double> decay = new java.util.LinkedHashMap<String, Double>();
-        decay.put("rapid_fire", balance.rapidFireDropDecay);
-        decay.put("bullet_speed", balance.bulletSpeedDropDecay);
         decay.put("spread", balance.spreadDropDecay);
-        decay.put("pierce", balance.pierceDropDecay);
         decay.put("bullet_power", balance.bulletPowerDropDecay);
         Map<DropSource, DropRule> rules = new EnumMap<DropSource, DropRule>(DropSource.class);
         rules.put(DropSource.REGULAR_ENEMY, new DropRule(balance.regularDropProbability, weights, decay));
@@ -558,10 +555,7 @@ public final class ItemSystem {
         switch (kind) {
             case LIFE: return Color.RED;
             case SHIELD: return Color.CYAN;
-            case RAPID_FIRE: return Color.ORANGE;
-            case BULLET_SPEED: return Color.YELLOW;
             case SPREAD: return new Color(0, 160, 255);
-            case PIERCE: return new Color(190, 90, 255);
             case BULLET_POWER: return new Color(255, 120, 60);
             case FREEZE: return new Color(150, 150, 255);
             case BOOST: return new Color(100, 255, 100);

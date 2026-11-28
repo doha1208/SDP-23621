@@ -14,10 +14,7 @@ public final class ItemArtwork {
     static {
         mask(EffectKind.LIFE, ".##...##.", "####.####", "#########", "#########", ".#######.", "..#####..", "...###...", "....#....", ".........");
         mask(EffectKind.SHIELD, ".#######.", "#########", "##.....##", "##.....##", "##..#..##", ".##.#.##.", "..#####..", "...###...", "....#....");
-        mask(EffectKind.RAPID_FIRE, ".#..#..#.", "###.#####", "###.#####", ".#..#..#.", ".........", ".#..#..#.", ".#..#..#.", ".........", ".#..#..#.");
-        mask(EffectKind.BULLET_SPEED, "....##...", "...##....", "..##.....", ".#######.", "....###..", "...###...", "..###....", ".##......", ".#.......");
         mask(EffectKind.SPREAD, "#...#...#", ".#..#..#.", "..#.#.#..", "...###...", "....#....", "....#....", "...###...", "...###...", ".........");
-        mask(EffectKind.PIERCE, "....#....", "...###...", "..#####..", "....#....", "#########", "....#....", "#########", "....#....", "....#....");
         mask(EffectKind.FREEZE, "#...#...#", ".#..#..#.", "..#.#.#..", "...###...", "#########", "...###...", "..#.#.#..", ".#..#..#.", "#...#...#");
         mask(EffectKind.BOOST, "....#....", "...##....", "..###.#..", "..#####..", ".#######.", ".##...##.", ".##.#.##.", "..##.##..", "...###...");
         mask(EffectKind.SCORE_BOOST, "....#....", "...###...", ".#######.", "..#####..", "...###...", "..##.##..", ".##...##.", ".........", "..#####..");
@@ -128,10 +125,7 @@ public final class ItemArtwork {
             case FREEZE: return "Stop enemy movement / " + time;
             case BOOST: return "+" + percent(item.magnitude) + "% move + fire / " + time;
             case SCORE_BOOST: return "Score x" + number(item.magnitude) + " / " + time;
-            case RAPID_FIRE: return "Faster fire / " + stack(item, effect);
-            case BULLET_SPEED: return "Faster bullets / " + stack(item, effect);
             case SPREAD: return "More shot directions / " + stack(item, effect);
-            case PIERCE: return "Pass through more enemies / " + stack(item, effect);
             case BULLET_POWER: return "Faster fire + pierce / " + stack(item, effect);
             default: return item.description;
         }

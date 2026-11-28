@@ -53,7 +53,7 @@ class ItemEffectSystem {
      * Applies synchronously and returns Applied. All foreseeable checks run before success.
      * LIFE: calls port.tryAddLife() once; true → ok(null), false → failed(EFFECT_REJECTED).
      * SHIELD: keeps durationMillis/charges; using one while active restarts both.
-     * RAPID_FIRE/BULLET_SPEED/SPREAD/PIERCE: run-wide stacks (up to maxStacks).
+     * SPREAD/BULLET_POWER (EffectKind.isRunUpgrade): run-wide stacks (up to maxStacks).
      * FREEZE: blocks movement for durationMillis. BOOST/SCORE_BOOST add temporary bonuses derived from base stats.
      * Using another boost or score boost while the same kind is active restarts its time, like the shield (freeze too).
      * None of the effects change the ship's base stats directly.
@@ -125,33 +125,23 @@ class ItemEffectSystem {
     /**
      * Always computes current effects from zero bonuses, unit multipliers and no movement block.
      * At most one effect per kind exists. Temporary BOOST does not multiply run-wide stacking bonuses.
-     * RAPID_FIRE: share of the base fire rate = magnitude * log2(1 + stacks), so every ship gains the same ratio
-     * (1 stack 1x, 2 about 1.58x, 3 2x, 7 3x).
-     * BULLET_SPEED, SPREAD, PIERCE: magnitude * stacks, so every stack adds the same whole amount.
+     * BULLET_POWER: share of the base fire rate = magnitude * log2(1 + stacks), so every ship gains the same
+     * ratio (1 stack 1x, 2 about 1.58x, 3 2x, 7 3x), and one pierce every bulletPowerPierceEvery stacks.
+     * SPREAD: magnitude * stacks pattern steps (see Ship.shoot).
      */
     Modifiers modifiers() {
         double fireRateRatio = 0.0;
-        double bulletSpeed = 0.0;
         int spread = 0, pierce = 0;
         double movementSpeedMultiplier = 1.0, fireRateMultiplier = 1.0, scoreMultiplier = 1.0;
         boolean movementBlocked = false;
         for (RunningEffect effect : running.values()) {
             switch (effect.item.effectKind) {
-                case RAPID_FIRE:
-                    fireRateRatio += logStackedBonus(effect);
-                    break;
-                case BULLET_POWER: // rapid fire every stack, one pierce every N stacks (Team Entities)
-                    fireRateRatio += logStackedBonus(effect);
-                    pierce += effect.stacks / bulletPowerPierceEvery;
-                    break;
-                case BULLET_SPEED:
-                    bulletSpeed = linearStackedBonus(effect);
+                case BULLET_POWER: // faster fire every stack, one pierce every N stacks (Team Entities)
+                    fireRateRatio = effect.item.magnitude * Math.log(1 + effect.stacks) / Math.log(2);
+                    pierce = effect.stacks / bulletPowerPierceEvery;
                     break;
                 case SPREAD:
-                    spread = (int) Math.round(linearStackedBonus(effect));
-                    break;
-                case PIERCE:
-                    pierce += (int) Math.round(linearStackedBonus(effect));
+                    spread = (int) Math.round(effect.item.magnitude * effect.stacks);
                     break;
                 case FREEZE:
                     movementBlocked = true;
@@ -167,7 +157,7 @@ class ItemEffectSystem {
                     break; // The shield works by charges and does not affect stats.
             }
         }
-        return new Modifiers(0.0, fireRateRatio, bulletSpeed, spread, pierce, movementBlocked,
+        return new Modifiers(0.0, fireRateRatio, 0.0, spread, pierce, movementBlocked,
             movementSpeedMultiplier, fireRateMultiplier, scoreMultiplier);
     }
 
@@ -199,14 +189,6 @@ class ItemEffectSystem {
         return Collections.unmodifiableList(ended);
     }
 
-    private static double logStackedBonus(RunningEffect effect) {
-        return effect.item.magnitude * Math.log(1 + effect.stacks) / Math.log(2);
-    }
-
-    private static double linearStackedBonus(RunningEffect effect) {
-        return effect.item.magnitude * effect.stacks;
-    }
-
     /** Extra time for a timed active (MANUAL) item while Long Lasting is equipped, otherwise 0. */
     private long activeExtraMillis(ItemInfo item) {
         if (item.activationMode != ActivationMode.MANUAL || item.durationKind != DurationKind.TIMED) return 0;
@@ -221,6 +203,10 @@ class ItemEffectSystem {
 
     /** Same kind/duration/value rules as ItemDefinitions.validate. Not called for LIFE. */
     private static void validateDefinition(ItemInfo item) {
+        if (item.effectKind.isRunUpgrade()) {
+            expect(item, DurationKind.UNTIL_RUN_END, item.magnitude != null && item.maxStacks != null);
+            return;
+        }
         switch (item.effectKind) {
             case SHIELD:
                 expect(item, DurationKind.TIMED, item.durationMillis != null && item.charges != null);
@@ -232,13 +218,6 @@ class ItemEffectSystem {
             case SCORE_BOOST:
                 expect(item, DurationKind.TIMED, item.durationMillis != null
                     && item.magnitude != null && item.magnitude > 1.0);
-                break;
-            case RAPID_FIRE:
-            case BULLET_SPEED:
-            case SPREAD:
-            case PIERCE:
-            case BULLET_POWER:
-                expect(item, DurationKind.UNTIL_RUN_END, item.magnitude != null && item.maxStacks != null);
                 break;
             case EXTRA_SLOTS:
             case MAGNET:

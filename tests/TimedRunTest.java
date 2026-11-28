@@ -130,7 +130,7 @@ public final class TimedRunTest {
         set(normal, "frame", 0);
         check(items.api().tryGrant(new GrantRequest("shield", "shield",
                 GrantSource.REWARD, GrantTiming.NOW)).isSuccess(), "Store shield");
-        check(items.api().tryGrant(new GrantRequest("rapid", "rapid_fire",
+        check(items.api().tryGrant(new GrantRequest("rapid", "bullet_power",
                 GrantSource.REWARD, GrantTiming.NOW)).isSuccess(), "Apply run-wide bonus");
         check(items.api().tryGrant(new GrantRequest("freeze", "freeze",
                 GrantSource.REWARD, GrantTiming.NOW)).isSuccess(), "Store freeze");
